@@ -25,8 +25,6 @@ CREATE TABLE exam_attempts (
         ON DELETE RESTRICT
 );
 
--- Facilita consultar todos los intentos
--- correspondientes a un examen.
 CREATE INDEX idx_exam_attempts_exam_id
     ON exam_attempts (exam_id);
 
