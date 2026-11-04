@@ -1,0 +1,36 @@
+import express from "express";
+import cors from "cors";
+import { pool } from "./config/database";
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({
+    status: "ok",
+    message: "API funcionando correctamente",
+  });
+});
+
+app.get("/api/health/db", async (_req, res) => {
+  try {
+    const result = await pool.query("SELECT NOW() AS fecha");
+
+    res.status(200).json({
+      status: "ok",
+      database: "connected",
+      fecha: result.rows[0].fecha,
+    });
+  } catch (error) {
+    console.error("Error de conexión:", error);
+
+    res.status(500).json({
+      status: "error",
+      message: "No se pudo conectar a PostgreSQL",
+    });
+  }
+});
+
+export default app;
