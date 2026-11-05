@@ -4,6 +4,7 @@ import { pool } from "./config/database";
 
 import studentRoutes from "./routes/student.routes";
 import examRoutes from "./routes/exam.routes";
+import attemptRoutes from "./routes/attempt.routes";
 
 const app = express();
 
@@ -38,5 +39,6 @@ app.get("/api/health/db", async (_req, res) => {
 
 app.use("/api/students", studentRoutes);
 app.use("/api/exams", examRoutes);
+app.use("/api/students", attemptRoutes);
 
 export default app;
