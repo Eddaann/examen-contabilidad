@@ -14,12 +14,23 @@ for (const name of ['client', 'auth.api', 'exam.api']) {
   fs.writeFileSync(path.join(compiled, `${name}.js`), result.outputText);
 }
 const { apiRequest, ApiError, errorMessage } = require(path.join(compiled, 'client.js'));
-const { login, getCurrentUser, logout } = require(path.join(compiled, 'auth.api.js'));
+const { login, register, getCurrentUser, logout } = require(path.join(compiled, 'auth.api.js'));
 test.after(() => fs.rmSync(compiled, { recursive: true, force: true }));
 
 const user = { id: '1', email: 'test@example.com', roles: ['STUDENT'] };
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), {
   status, headers: { 'Content-Type': 'application/json', ...headers },
+});
+
+test('registro acepta la respuesta sin roles ni sesión y maneja correo duplicado', async t => {
+  const account = { id: '7', email: 'nuevo@example.com' };
+  const mock = t.mock.method(globalThis, 'fetch', async () => json({ user: account }, 201));
+  assert.deepEqual(await register(account.email, 'FAKE_PASSWORD'), account);
+  mock.mock.mockImplementation(async () => json({ detail: 'PRIVATE' }, 409));
+  await assert.rejects(register(account.email, 'FAKE_PASSWORD'), e =>
+    e.status === 409 && e.message.includes('ya está registrado') && !e.message.includes('PRIVATE'));
+  mock.mock.mockImplementation(async () => json({ message: 'OK' }, 201));
+  await assert.rejects(register(account.email, 'FAKE_PASSWORD'), e => e.message.includes('Intenta iniciar sesión'));
 });
 
 test('login y recuperación usan cookies; logout llama al servidor', async t => {

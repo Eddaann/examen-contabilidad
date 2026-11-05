@@ -47,6 +47,8 @@ Las cuentas se preparan automáticamente al arrancar el backend; no necesitas re
 
 Para revisar el flujo principal, entra con `alumno1@ejemplo.com`, responde las cinco preguntas, pulsa **Finalizar examen** y confirma el envío. Verás la calificación y tus respuestas. Recarga la página o cierra sesión y vuelve a entrar: el resultado debe conservarse. Cada alumno puede enviar el examen una sola vez; utiliza otra cuenta de alumno para repetir la demostración sin borrar datos.
 
+También puedes seleccionar **Crear cuenta** desde el login. Ingresa un correo válido y una contraseña de entre 12 y 128 caracteres, confirma la contraseña y envía el formulario. Al completarse el registro, vuelve al login con el correo precargado y un mensaje de confirmación. Inicia sesión con la contraseña que elegiste. El registro público crea únicamente estudiantes; cada cuenta nueva tiene su propio intento.
+
 **No debes enviar ni subir tu `.env`.** Git lo excluye; `.env.example` y el generador no contienen secretos reales. La contraseña queda disponible únicamente en tu archivo local; no se muestra en la salida del generador. No hace falta obtener o configurar un JWT de usuario: el login lo genera automáticamente.
 
 Para apagar y volver a ejecutar, conservando usuarios y resultados:
