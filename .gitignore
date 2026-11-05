@@ -17,3 +17,19 @@ playwright-report/
 blob-report/
 test-results/
 /output/playwright/
+
+# Logs y archivos temporales de compilación
+*.log
+*.tsbuildinfo
+
+# Claves privadas y certificados con material privado
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Capturas de red y sesiones de autenticación de Playwright
+*.har
+playwright/.auth/
+storage-state*.json
+auth-state*.json
