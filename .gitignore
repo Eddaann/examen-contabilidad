@@ -8,3 +8,4 @@ coverage/
 
 # Cookies de pruebas
 cookies*.txt
+auth-cookies.txt

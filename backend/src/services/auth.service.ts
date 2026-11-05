@@ -3,6 +3,7 @@ import argon2 from "argon2";
 import {
   createStudent,
   findUserByEmail,
+  findUserCredentials,
 } from "../repositories/auth.repository";
 
 export class AuthError extends Error {
@@ -85,4 +86,41 @@ export async function registerStudent(
 
     throw error;
   }
+}
+
+export async function loginUser(
+  email: string,
+  password: string
+) {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const user = await findUserCredentials(
+    normalizedEmail
+  );
+
+  // Mismo error para correo desconocido y contraseña incorrecta
+  if (!user || !user.password_hash) {
+    throw new AuthError(
+      "Credenciales incorrectas",
+      401
+    );
+  }
+
+  const validPassword = await argon2.verify(
+    user.password_hash,
+    password
+  );
+
+  if (!validPassword) {
+    throw new AuthError(
+      "Credenciales incorrectas",
+      401
+    );
+  }
+
+  return {
+    id: user.id,
+    email: user.email,
+    roles: user.roles ?? [],
+  };
 }

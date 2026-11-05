@@ -65,3 +65,36 @@ export async function createStudent(
     client.release();
   }
 }
+
+
+export interface UserCredentials {
+  id: string;
+  email: string;
+  password_hash: string | null;
+  roles: string[];
+}
+
+export async function findUserCredentials(
+  email: string
+): Promise<UserCredentials | null> {
+  const result = await pool.query<UserCredentials>(
+    `SELECT
+       u.id,
+       u.email,
+       u.password_hash,
+       ARRAY_AGG(r.code) FILTER (
+         WHERE r.code IS NOT NULL
+       ) AS roles
+     FROM users u
+     LEFT JOIN user_roles ur
+       ON ur.user_id = u.id
+     LEFT JOIN roles r
+       ON r.id = ur.role_id
+     WHERE u.email = $1
+     GROUP BY u.id, u.email, u.password_hash`,
+    [email]
+  );
+
+  return result.rows[0] ?? null;
+}
+
