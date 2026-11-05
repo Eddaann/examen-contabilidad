@@ -144,7 +144,21 @@ test('autenticación, cuentas de prueba y permisos efectivos del estudiante', as
         assert.equal((await call('GET', '/api/students/me/exams/1/result', null, login.cookie)).data.grade, '5/5');
       }
       assert.equal((await call('POST', '/api/exams/1/submit', { answers }, login.cookie)).status, 409);
-      assert.equal((await call('POST', '/api/auth/logout', null, login.cookie)).cookie, 'auth_session=');
+      if (email === 'alumno1@ejemplo.com') {
+
+        await database.query('ALTER TABLE auth_sessions RENAME TO auth_sessions_unavailable');
+        try {
+          const failedLogout = await call('POST', '/api/auth/logout', null, login.cookie);
+          assert.equal(failedLogout.status, 500);
+          assert.equal(failedLogout.cookie, undefined);
+        } finally {
+          await database.query('ALTER TABLE auth_sessions_unavailable RENAME TO auth_sessions');
+        }
+        assert.equal((await call('GET', '/api/auth/me', null, login.cookie)).status, 200);
+      }
+      const logout = await call('POST', '/api/auth/logout', null, login.cookie);
+      assert.equal(logout.status, 200);
+      assert.equal(logout.cookie, 'auth_session=');
       assert.equal((await call('GET', '/api/auth/me', null, login.cookie)).status, 401);
       assert.equal((await call('GET', statusPath, null, login.cookie)).status, 401);
     }

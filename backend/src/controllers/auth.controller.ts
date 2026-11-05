@@ -114,15 +114,14 @@ export async function logout(
   req: Request,
   res: Response
 ): Promise<void> {
-  res.clearCookie("auth_session", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-  });
-
   try {
     await revokeSession(req.cookies?.auth_session);
+    res.clearCookie("auth_session", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+    });
     res.status(200).json({ message: "Sesión cerrada correctamente" });
   } catch {
     console.error("Error al revocar sesión");
