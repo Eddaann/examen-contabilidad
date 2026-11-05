@@ -1,7 +1,8 @@
-
 import { pool } from "../config/database";
+
 import {
   findAttempt,
+  findAttemptResult,
   saveExamAttempt,
   type SubmittedAnswer,
 } from "../repositories/attempt.repository";
@@ -260,4 +261,42 @@ export async function submitExam(
   } finally {
     client.release();
   }
+}
+
+
+export async function getStudentResult(
+  studentId: string,
+  examId: string
+) {
+  const attempt = await findAttemptResult(
+    studentId,
+    examId
+  );
+
+  if (!attempt) {
+    return null;
+  }
+
+  const details = attempt.answers.map((answer) => ({
+    questionNumber: answer.question_number,
+    selectedOption: answer.selected_option,
+    correctOption: answer.correct_option,
+    isCorrect:
+      answer.selected_option === answer.correct_option,
+  }));
+
+  const score = details.filter(
+    (answer) => answer.isCorrect
+  ).length;
+
+  const total = details.length;
+
+  return {
+    examId,
+    submittedAt: attempt.submittedAt,
+    score,
+    total,
+    grade: `${score}/${total}`,
+    details,
+  };
 }

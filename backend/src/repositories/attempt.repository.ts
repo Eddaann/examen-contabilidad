@@ -59,3 +59,54 @@ export async function saveExamAttempt(
     );
   }
 }
+
+
+interface AttemptResultRow {
+  submitted_at: Date;
+}
+
+export interface SavedAnswerRow {
+  question_number: number;
+  selected_option: string;
+  correct_option: string;
+}
+
+export async function findAttemptResult(
+  studentId: string,
+  examId: string
+) {
+  // Recuperar el intento y su fecha
+  const attemptResult = await pool.query<AttemptResultRow>(
+    `SELECT submitted_at
+     FROM exam_attempts
+     WHERE user_id = $1 AND exam_id = $2`,
+    [studentId, examId]
+  );
+
+  if (attemptResult.rows.length === 0) {
+    return null;
+  }
+
+  // Recuperar las respuestas del alumno y las correctas
+  const answersResult = await pool.query<SavedAnswerRow>(
+    `SELECT
+       a.question_number,
+       a.option_code AS selected_option,
+       o.code AS correct_option
+     FROM attempt_answers a
+     JOIN options o
+       ON o.exam_id = a.exam_id
+       AND o.question_number = a.question_number
+       AND o.is_correct = TRUE
+     WHERE a.user_id = $1
+       AND a.exam_id = $2
+     ORDER BY a.question_number`,
+    [studentId, examId]
+  );
+
+  return {
+    submittedAt: attemptResult.rows[0].submitted_at,
+    answers: answersResult.rows,
+  };
+}
+

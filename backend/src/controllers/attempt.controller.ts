@@ -1,7 +1,8 @@
-
 import type { Request, Response } from "express";
+
 import {
   getAttemptStatus,
+  getStudentResult,
   submitExam,
   AttemptError,
 } from "../services/attempt.service";
@@ -110,6 +111,44 @@ export async function submitStudentExam(
     }
 
     console.error("Error al enviar examen:", error);
+
+    res.status(500).json({
+      message: "Error interno del servidor",
+    });
+  }
+}
+
+
+export async function getStudentExamResult(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const studentId: unknown = res.locals.studentId;
+  const { examId } = req.params;
+
+  if (!isValidId(studentId) || !isValidId(examId)) {
+    res.status(400).json({
+      message: "Identificador inválido",
+    });
+    return;
+  }
+
+  try {
+    const result = await getStudentResult(
+      studentId,
+      examId
+    );
+
+    if (!result) {
+      res.status(404).json({
+        message: "Resultado no encontrado",
+      });
+      return;
+    }
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Error al consultar resultado:", error);
 
     res.status(500).json({
       message: "Error interno del servidor",
