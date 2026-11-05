@@ -1,3 +1,8 @@
 export default function App() {
-  return null;
+  return (
+    <main>
+      <h1>Examen de Contabilidad</h1>
+      <p>Frontend conectado correctamente.</p>
+    </main>
+  );
 }
