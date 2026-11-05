@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import { errorHandler } from "./middlewares/error.middleware";
 
 import { pool } from "./config/database";
 
@@ -38,7 +39,7 @@ app.get("/api/health/db", async (_req, res) => {
       fecha: result.rows[0].fecha,
     });
   } catch (error) {
-    console.error("Error de conexión:", error);
+    console.error("Error de conexión:");
 
     res.status(500).json({
       status: "error",
@@ -52,5 +53,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/teacher", teacherRoutes);
 app.use("/api/exams", examRoutes);
 app.use("/api/students", attemptRoutes);
+
+// Debe ir después de los parsers y de todas las rutas.
+app.use(errorHandler);
 
 export default app;

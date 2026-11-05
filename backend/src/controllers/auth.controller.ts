@@ -42,7 +42,7 @@ export async function register(
       return;
     }
 
-    console.error("Error al registrar usuario:", error);
+    console.error("Error al registrar usuario:");
 
     res.status(500).json({
       message: "Error interno del servidor",
@@ -107,7 +107,7 @@ export async function login(
       return;
     }
 
-    console.error("Error al iniciar sesión:", error);
+    console.error("Error al iniciar sesión:");
 
     res.status(500).json({
       message: "Error interno del servidor",

@@ -36,7 +36,7 @@ export function requirePermission(permission: string) {
 
       next();
     } catch (error) {
-      console.error("Error al verificar permisos:", error);
+      console.error("Error al verificar permisos:");
 
       res.status(500).json({
         message: "Error interno del servidor",

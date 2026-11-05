@@ -30,7 +30,7 @@ export async function getExam(
 
     res.status(200).json(exam);
   } catch (error) {
-    console.error("Error al consultar examen:", error);
+    console.error("Error al consultar examen:");
 
     res.status(500).json({
       message: "Error interno del servidor",

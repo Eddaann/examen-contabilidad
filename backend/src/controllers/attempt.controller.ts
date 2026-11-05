@@ -47,7 +47,7 @@ export async function getStudentAttemptStatus(
 
     res.status(200).json(status);
   } catch (error) {
-    console.error("Error al consultar intento:", error);
+    console.error("Error al consultar intento:");
 
     res.status(500).json({
       message: "Error interno del servidor",
@@ -110,7 +110,7 @@ export async function submitStudentExam(
       return;
     }
 
-    console.error("Error al enviar examen:", error);
+    console.error("Error al enviar examen:");
 
     res.status(500).json({
       message: "Error interno del servidor",
@@ -148,7 +148,7 @@ export async function getStudentExamResult(
 
     res.status(200).json(result);
   } catch (error) {
-    console.error("Error al consultar resultado:", error);
+    console.error("Error al consultar resultado:");
 
     res.status(500).json({
       message: "Error interno del servidor",

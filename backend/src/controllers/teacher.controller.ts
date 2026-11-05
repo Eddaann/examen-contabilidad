@@ -11,7 +11,7 @@ export async function getStudents(
 
     res.status(200).json({ students });
   } catch (error) {
-    console.error("Error al consultar estudiantes:", error);
+    console.error("Error al consultar estudiantes:");
 
     res.status(500).json({
       message: "Error interno del servidor",
@@ -28,7 +28,7 @@ export async function getResults(
 
     res.status(200).json({ results });
   } catch (error) {
-    console.error("Error al consultar calificaciones:", error);
+    console.error("Error al consultar calificaciones:");
 
     res.status(500).json({
       message: "Error interno del servidor",

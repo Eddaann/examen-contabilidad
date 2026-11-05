@@ -75,7 +75,7 @@ export async function requireAuth(
       return;
     }
 
-    console.error("Error al validar sesión:", error);
+    console.error("Error al validar sesión:");
 
     res.status(500).json({
       message: "Error interno del servidor",
