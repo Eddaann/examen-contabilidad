@@ -3,17 +3,12 @@ import type {
   Response,
   NextFunction,
 } from "express";
-import jwt from "jsonwebtoken";
+import { readSessionToken } from "../services/session.service";
 
 import {
   findUserById,
   type AuthenticatedUser,
 } from "../repositories/auth.repository";
-
-interface SessionPayload extends jwt.JwtPayload {
-  sub: string;
-  type: "authenticated";
-}
 
 export async function requireAuth(
   req: Request,
@@ -30,32 +25,12 @@ export async function requireAuth(
   }
 
   try {
-    const secret = process.env.JWT_SECRET;
-
-    if (!secret) {
-      throw new Error("JWT_SECRET no configurada");
-    }
-
-    const decoded = jwt.verify(token, secret, {
-      algorithms: ["HS256"],
-    });
-
-    if (
-      typeof decoded === "string" ||
-      decoded.type !== "authenticated" ||
-      typeof decoded.sub !== "string" ||
-      !/^[1-9]\d*$/.test(decoded.sub) ||
-      BigInt(decoded.sub) > 9223372036854775807n
-    ) {
-      res.status(401).json({
-        message: "Sesión no válida",
-      });
+    const identity = readSessionToken(token);
+    if (!identity) {
+      res.status(401).json({ message: "Sesión no válida o expirada" });
       return;
     }
-
-    const payload = decoded as SessionPayload;
-
-    const user = await findUserById(payload.sub);
+    const user = await findUserById(identity.userId, identity.sessionId);
 
     if (!user) {
       res.status(401).json({
@@ -68,13 +43,6 @@ export async function requireAuth(
 
     next();
   } catch (error) {
-    if (error instanceof jwt.JsonWebTokenError) {
-      res.status(401).json({
-        message: "Sesión no válida o expirada",
-      });
-      return;
-    }
-
     console.error("Error al validar sesión:");
 
     res.status(500).json({

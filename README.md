@@ -52,7 +52,7 @@ Para borrar completamente la base local y volver a cargar los datos iniciales, e
 
 ## Base de datos
 
-PostgreSQL ejecuta los cuatro SQL de `database/migrations/` y después los dos de `database/seeds/`, en orden, al inicializar un volumen vacío. Se crean las tablas, roles, permisos, tres estudiantes y el examen con sus cinco preguntas y veinte opciones.
+PostgreSQL ejecuta los cinco SQL de `database/migrations/` y después los dos de `database/seeds/`, en orden, al inicializar un volumen vacío. Se crean las tablas, roles, permisos, tres estudiantes y el examen con sus cinco preguntas y veinte opciones.
 
 Cuentas de prueba:
 
@@ -139,3 +139,17 @@ docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d 
 La migración conserva intentos y respuestas existentes y reconstruye su corrección con la clave disponible al migrar. No puede recuperar una clave histórica que ya haya sido modificada. Si faltan respuestas correctas para reconstruir los datos, la migración falla y revierte sus cambios. La base local de esta revisión ya fue migrada.
 
 Las pruebas de integración cubren la migración de un intento previo con respuestas correctas e incorrectas, la conservación del resultado del estudiante y profesor tras editar la clave y agregar una pregunta, y el cálculo de envíos nuevos con la configuración actualizada.
+
+## Revocación de sesiones
+
+Cada login crea una sesión independiente en `auth_sessions` y un JWT con identificador aleatorio (`jti`), válido durante dos horas. La base no almacena el JWT ni contraseñas de sesión. Cada petición protegida comprueba firma, expiración, dueño, existencia de la sesión y versión vigente del usuario.
+
+`POST /api/auth/logout` elimina la sesión del servidor y la cookie del navegador. Reutilizar una copia del token devuelve 401. Cerrar una sesión no cierra las demás del usuario; cambiar `users.password_hash` incrementa automáticamente `session_version` mediante un trigger de PostgreSQL e invalida todas las anteriores. No se añadió un endpoint para cambiar contraseñas en este cambio. Los roles y permisos se siguen consultando en la base en cada petición.
+
+La migración `005_create_auth_sessions.sql` se aplica automáticamente al crear una base nueva. En una instalación existente, ejecútala una sola vez antes de iniciar el backend actualizado:
+
+```bash
+docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < database/migrations/005_create_auth_sessions.sql
+```
+
+La base local ya fue migrada. Los JWT emitidos antes de este cambio dejan de autorizar: debes iniciar sesión de nuevo. Las sesiones vencidas se rechazan aunque sus registros sigan en la tabla.

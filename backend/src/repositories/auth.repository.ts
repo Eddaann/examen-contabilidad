@@ -71,6 +71,7 @@ export interface UserCredentials {
   id: string;
   email: string;
   password_hash: string | null;
+  session_version: number;
   roles: string[];
 }
 
@@ -82,6 +83,7 @@ export async function findUserCredentials(
        u.id,
        u.email,
        u.password_hash,
+       u.session_version,
        ARRAY_AGG(r.code) FILTER (
          WHERE r.code IS NOT NULL
        ) AS roles
@@ -105,7 +107,8 @@ export interface AuthenticatedUser {
 }
 
 export async function findUserById(
-  userId: string
+  userId: string,
+  sessionId: string
 ): Promise<AuthenticatedUser | null> {
   const result = await pool.query<{
     id: string;
@@ -122,6 +125,10 @@ export async function findUserById(
          ARRAY[]::VARCHAR[]
        ) AS roles
      FROM users u
+     JOIN auth_sessions s ON s.user_id = u.id
+       AND s.session_version = u.session_version
+       AND s.expires_at > NOW()
+       AND s.id = $2
      LEFT JOIN user_roles ur
        ON ur.user_id = u.id
      LEFT JOIN roles r
@@ -129,7 +136,7 @@ export async function findUserById(
      WHERE u.id = $1
        AND u.password_hash IS NOT NULL
      GROUP BY u.id, u.email`,
-    [userId]
+    [userId, sessionId]
   );
 
   return result.rows[0] ?? null;

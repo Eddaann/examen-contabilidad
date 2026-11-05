@@ -14,8 +14,9 @@ services:
       - ./database/migrations/002_create_exams.sql:/docker-entrypoint-initdb.d/002_create_exams.sql:ro
       - ./database/migrations/003_create_attempts.sql:/docker-entrypoint-initdb.d/003_create_attempts.sql:ro
       - ./database/migrations/004_preserve_attempt_results.sql:/docker-entrypoint-initdb.d/004_preserve_attempt_results.sql:ro
-      - ./database/seeds/001_roles_permissions.sql:/docker-entrypoint-initdb.d/005_roles_permissions.sql:ro
-      - ./database/seeds/002_test_data.sql:/docker-entrypoint-initdb.d/006_test_data.sql:ro
+      - ./database/migrations/005_create_auth_sessions.sql:/docker-entrypoint-initdb.d/005_create_auth_sessions.sql:ro
+      - ./database/seeds/001_roles_permissions.sql:/docker-entrypoint-initdb.d/006_roles_permissions.sql:ro
+      - ./database/seeds/002_test_data.sql:/docker-entrypoint-initdb.d/007_test_data.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s

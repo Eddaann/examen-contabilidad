@@ -122,5 +122,6 @@ export async function loginUser(
     id: user.id,
     email: user.email,
     roles: user.roles ?? [],
+    sessionVersion: user.session_version,
   };
 }

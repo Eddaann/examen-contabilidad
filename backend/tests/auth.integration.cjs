@@ -46,6 +46,7 @@ test('autenticación, cuentas de prueba y permisos efectivos del estudiante', as
     assert.deepEqual(migratedAnswers.rows.map(row => row.correct_option_code), ['A', 'B', 'A', 'B', 'A']);
     assert.deepEqual(migratedAnswers.rows.map(row => row.is_correct), [false, true, false, true, false]);
     await database.query('DELETE FROM attempt_answers; DELETE FROM exam_attempts');
+    await database.query(fs.readFileSync('../database/migrations/005_create_auth_sessions.sql', 'utf8'));
 
     const seed = () => execFileSync(process.execPath, ['dist/scripts/seed-users.js'], {
       env: process.env, stdio: 'ignore',
@@ -139,6 +140,8 @@ test('autenticación, cuentas de prueba y permisos efectivos del estudiante', as
       }
       assert.equal((await call('POST', '/api/exams/1/submit', { answers }, login.cookie)).status, 409);
       assert.equal((await call('POST', '/api/auth/logout', null, login.cookie)).cookie, 'auth_session=');
+      assert.equal((await call('GET', '/api/auth/me', null, login.cookie)).status, 401);
+      assert.equal((await call('GET', statusPath, null, login.cookie)).status, 401);
     }
     const teacher = await call('POST', '/api/auth/login', { email: 'profesor1@ejemplo.com', password: process.env.TEST_TEACHER_PASSWORD });
     assert.equal(teacher.status, 200);
@@ -199,6 +202,65 @@ test('autenticación, cuentas de prueba y permisos efectivos del estudiante', as
     assert.equal(newResult.data.result.details[0].correctOption, 'B');
     assert.equal(newResult.data.result.details[0].isCorrect, false);
     assert.equal((await call('GET', '/api/students/me/exams/1/result', null, newStudent.cookie)).data.grade, '5/6');
+
+    // Cada login tiene su propia sesión y logout solo revoca la presentada.
+    const secondSession = await call('POST', '/api/auth/login', {
+      email: 'nuevo@ejemplo.com', password: process.env.TEST_STUDENT_PASSWORD,
+    });
+    assert.ok(secondSession.cookie !== newStudent.cookie);
+    assert.equal((await call('POST', '/api/auth/logout', null, newStudent.cookie)).status, 200);
+    assert.equal((await call('GET', '/api/auth/me', null, newStudent.cookie)).status, 401);
+    assert.equal((await call('GET', '/api/auth/me', null, secondSession.cookie)).status, 200);
+    assert.equal((await call('POST', '/api/auth/logout', null, newStudent.cookie)).status, 200);
+    assert.equal((await call('POST', '/api/auth/logout', null, 'auth_session=invalid')).status, 200);
+    assert.equal((await call('POST', '/api/auth/logout')).status, 200);
+
+    // Firma válida sin sesión registrada o con dueño distinto no autoriza.
+    const forged = jwt.sign({ sub: '1', type: 'authenticated', jti: crypto.randomUUID() },
+      process.env.JWT_SECRET, { expiresIn: '2h' });
+    assert.equal((await call('GET', '/api/auth/me', null, `auth_session=${forged}`)).status, 401);
+    const secondIdentity = jwt.decode(secondSession.cookie.slice('auth_session='.length));
+    const wrongOwner = jwt.sign({ sub: '1', type: 'authenticated', jti: secondIdentity.jti },
+      process.env.JWT_SECRET, { expiresIn: '2h' });
+    assert.equal((await call('GET', '/api/auth/me', null, `auth_session=${wrongOwner}`)).status, 401);
+    const expiredJwt = jwt.sign({ sub: secondIdentity.sub, type: 'authenticated', jti: secondIdentity.jti },
+      process.env.JWT_SECRET, { expiresIn: -1 });
+    assert.equal((await call('GET', '/api/auth/me', null, `auth_session=${expiredJwt}`)).status, 401);
+
+    // Cambiar la contraseña invalida todas las sesiones y la contraseña anterior.
+    const thirdSession = await call('POST', '/api/auth/login', {
+      email: 'nuevo@ejemplo.com', password: process.env.TEST_STUDENT_PASSWORD,
+    });
+    const originalHash = (await database.query(
+      "SELECT password_hash FROM users WHERE email = 'nuevo@ejemplo.com'"
+    )).rows[0].password_hash;
+    const changedPassword = crypto.randomBytes(24).toString('hex');
+    const changedHash = await require('argon2').hash(changedPassword);
+    await database.query("UPDATE users SET password_hash = $1 WHERE email = 'nuevo@ejemplo.com'", [changedHash]);
+    for (const active of [secondSession, thirdSession]) {
+      assert.equal((await call('GET', '/api/auth/me', null, active.cookie)).status, 401);
+    }
+    assert.equal((await call('POST', '/api/auth/login', {
+      email: 'nuevo@ejemplo.com', password: process.env.TEST_STUDENT_PASSWORD,
+    })).status, 401);
+    const renewed = await call('POST', '/api/auth/login', {
+      email: 'nuevo@ejemplo.com', password: changedPassword,
+    });
+    assert.equal(renewed.status, 200);
+    assert.equal((await call('GET', '/api/auth/me', null, renewed.cookie)).status, 200);
+    // Incluso restaurar el hash previo no vuelve a activar sesiones antiguas.
+    await database.query("UPDATE users SET password_hash = $1 WHERE email = 'nuevo@ejemplo.com'", [originalHash]);
+    assert.equal((await call('GET', '/api/auth/me', null, secondSession.cookie)).status, 401);
+    assert.equal((await call('GET', '/api/auth/me', null, renewed.cookie)).status, 401);
+
+    const databaseExpired = await call('POST', '/api/auth/login', {
+      email: 'nuevo@ejemplo.com', password: process.env.TEST_STUDENT_PASSWORD,
+    });
+    const expiredIdentity = jwt.decode(databaseExpired.cookie.slice('auth_session='.length));
+    await database.query(`UPDATE auth_sessions SET created_at = NOW() - INTERVAL '2 hours',
+      expires_at = NOW() - INTERVAL '1 second' WHERE id = $1`, [expiredIdentity.jti]);
+    assert.equal((await call('GET', '/api/auth/me', null, databaseExpired.cookie)).status, 401);
+
 
   } finally {
     if (server) await new Promise(resolve => server.close(resolve));

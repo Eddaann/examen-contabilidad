@@ -4,7 +4,7 @@ import {
   registerStudent,
   loginUser,
 } from "../services/auth.service";
-import jwt from "jsonwebtoken";
+import { issueSession, revokeSession } from "../services/session.service";
 import type { AuthenticatedUser } from "../repositories/auth.repository";
 
 export async function register(
@@ -69,24 +69,8 @@ export async function login(
   }
 
   try {
-    const user = await loginUser(email, password);
-
-    const secret = process.env.JWT_SECRET;
-
-    if (!secret) {
-      throw new Error("JWT_SECRET no configurada");
-    }
-
-    const token = jwt.sign(
-      {
-        sub: user.id,
-        type: "authenticated",
-      },
-      secret,
-      {
-        expiresIn: "2h",
-      }
-    );
+    const { sessionVersion, ...user } = await loginUser(email, password);
+    const token = await issueSession(user.id, sessionVersion);
 
     res.cookie("auth_session", token, {
       httpOnly: true,
@@ -126,10 +110,10 @@ export function getCurrentUser(
   });
 }
 
-export function logout(
-  _req: Request,
+export async function logout(
+  req: Request,
   res: Response
-): void {
+): Promise<void> {
   res.clearCookie("auth_session", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -137,8 +121,11 @@ export function logout(
     path: "/",
   });
 
-  res.status(200).json({
-    message: "Sesión cerrada correctamente",
-  });
+  try {
+    await revokeSession(req.cookies?.auth_session);
+    res.status(200).json({ message: "Sesión cerrada correctamente" });
+  } catch {
+    console.error("Error al revocar sesión");
+    res.status(500).json({ message: "No se pudo revocar la sesión" });
+  }
 }
-
