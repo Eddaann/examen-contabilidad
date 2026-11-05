@@ -6,13 +6,13 @@ Aplicación en desarrollo para responder un examen y consultar el resultado de u
 
 Requisitos: Git y Docker con Docker Compose v2 (incluido en Docker Desktop). No necesitas instalar Node.js ni PostgreSQL en tu equipo.
 
-Después de clonar el repositorio, ejecuta desde su raíz:
+Después de clonar el repositorio, copia `.env.example` a `.env` y sustituye el valor de ejemplo de `JWT_SECRET` por una clave privada aleatoria. No la publiques ni la incluyas en Git. Después ejecuta desde la raíz:
 
 ```bash
 docker compose up --build -d --wait
 ```
 
-Abre http://localhost:8080. Compose construye el backend y el frontend, prepara PostgreSQL y espera a que los servicios estén disponibles. No es necesario crear `.env`: hay valores locales predeterminados.
+Abre http://localhost:8080. Compose construye el backend y el frontend, prepara PostgreSQL y espera a que los servicios estén disponibles. Las credenciales de PostgreSQL tienen valores locales predeterminados; `JWT_SECRET` es obligatoria y Compose detiene el arranque si falta o está vacía.
 
 El frontend contiene únicamente la estructura mínima de React, sin interfaz (la página se muestra en blanco). La API implementada permite verificar el servidor y la conexión con la base; el flujo del examen sigue pendiente.
 
@@ -23,9 +23,9 @@ El frontend contiene únicamente la estructura mínima de React, sin interfaz (l
 
 En una instalación nueva, las credenciales locales predeterminadas son usuario `examen`, contraseña `examen_local` y base `examen_contabilidad`. Son exclusivamente para desarrollo local.
 
-### Configuración opcional
+### Configuración
 
-Puedes copiar `.env.example` a `.env` y ajustar puertos o credenciales antes del primer arranque. Si ya tienes un `.env`, Compose utiliza sus valores. `DB_HOST` y `DB_PORT` solo configuran la ejecución del backend fuera de Docker: dentro de Compose utiliza `db:5432`.
+Además de configurar `JWT_SECRET` en `.env`, puedes ajustar puertos o credenciales antes del primer arranque. Si ya tienes un `.env`, Compose utiliza sus valores. `DB_HOST` y `DB_PORT` solo configuran la ejecución del backend fuera de Docker: dentro de Compose utiliza `db:5432`.
 
 Cambiar las credenciales del archivo no cambia las de una base ya inicializada. Para un volumen existente, utiliza sus credenciales actuales.
 

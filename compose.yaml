@@ -27,6 +27,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET:?Configura JWT_SECRET en el archivo .env}
       PORT: 3000
       DB_HOST: db
       DB_PORT: 5432
