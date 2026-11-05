@@ -4,21 +4,13 @@ import {
   findAttempt,
   findAttemptResult,
   saveExamAttempt,
+  isStudent,
+  doesExamExist,
+  lockActiveExam,
+  findCorrectAnswers,
+  findExamOptions,
   type SubmittedAnswer,
 } from "../repositories/attempt.repository";
-
-interface CorrectAnswerRow {
-  number: number;
-  code: string | null;
-  statement: string;
-  correct_text: string | null;
-}
-
-interface OptionRow {
-  question_number: number;
-  code: string;
-  text: string;
-}
 
 export class AttemptError extends Error {
   constructor(
@@ -35,26 +27,15 @@ export async function getAttemptStatus(
   studentId: string,
   examId: string
 ) {
-  const studentResult = await pool.query(
-    `SELECT u.id
-     FROM users u
-     JOIN user_roles ur ON ur.user_id = u.id
-     JOIN roles r ON r.id = ur.role_id
-     WHERE u.id = $1
-       AND r.code = 'STUDENT'`,
-    [studentId]
-  );
+  const studentExists = await isStudent(studentId);
 
-  if (studentResult.rowCount === 0) {
+  if (!studentExists) {
     return null;
   }
 
-  const examResult = await pool.query(
-    `SELECT id FROM exams WHERE id = $1`,
-    [examId]
-  );
+  const examExists = await doesExamExist(examId);
 
-  if (examResult.rowCount === 0) {
+  if (!examExists) {
     return null;
   }
 
@@ -79,16 +60,9 @@ export async function submitExam(
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ");
 
     // Verificar el rol del estudiante
-    const studentResult = await client.query(
-      `SELECT 1
-       FROM user_roles ur
-       JOIN roles r ON r.id = ur.role_id
-       WHERE ur.user_id = $1
-         AND r.code = 'STUDENT'`,
-      [studentId]
-    );
+    const studentExists = await isStudent(studentId, client);
 
-    if (studentResult.rowCount === 0) {
+    if (!studentExists) {
       throw new AttemptError(
         "Estudiante no autorizado",
         403
@@ -96,16 +70,9 @@ export async function submitExam(
     }
 
     // Verificar que el examen esté activo
-    const examResult = await client.query(
-      `SELECT id
-       FROM exams
-       WHERE id = $1
-         AND is_active = TRUE
-       FOR SHARE`,
-      [examId]
-    );
+    const examAvailable = await lockActiveExam(examId, client);
 
-    if (examResult.rowCount === 0) {
+    if (!examAvailable) {
       throw new AttemptError(
         "Examen no disponible",
         404
@@ -113,15 +80,9 @@ export async function submitExam(
     }
 
     // Verificar si ya existe un intento
-    const previousAttempt = await client.query(
-      `SELECT 1
-       FROM exam_attempts
-       WHERE user_id = $1
-         AND exam_id = $2`,
-      [studentId, examId]
-    );
+    const previousAttempt = await findAttempt(studentId, examId, client);
 
-    if ((previousAttempt.rowCount ?? 0) > 0) {
+    if (previousAttempt) {
       throw new AttemptError(
         "El examen ya fue presentado",
         409
@@ -129,23 +90,7 @@ export async function submitExam(
     }
 
     // Consultar todas las preguntas y su respuesta correcta
-    const correctResult = await client.query<CorrectAnswerRow>(
-      `SELECT
-         q.number,
-         q.statement,
-         o.code,
-         o.text AS correct_text
-       FROM questions q
-       LEFT JOIN options o
-         ON o.exam_id = q.exam_id
-         AND o.question_number = q.number
-         AND o.is_correct = TRUE
-       WHERE q.exam_id = $1
-       ORDER BY q.number`,
-      [examId]
-    );
-
-    const correctAnswers = correctResult.rows;
+    const correctAnswers = await findCorrectAnswers(examId, client);
 
     // Comprobar que el examen esté configurado
     if (
@@ -188,17 +133,12 @@ export async function submitExam(
     }
 
     // Consultar las opciones válidas
-    const optionsResult = await client.query<OptionRow>(
-      `SELECT question_number, code, text
-       FROM options
-       WHERE exam_id = $1`,
-      [examId]
-    );
+    const options = await findExamOptions(examId, client);
 
     // Comprobar que cada opción exista
     const invalidOption = answers.some(
       (answer) =>
-        !optionsResult.rows.some(
+        !options.some(
           (option) =>
             option.question_number === answer.questionNumber &&
             option.code === answer.optionCode
@@ -221,7 +161,7 @@ export async function submitExam(
       return {
         questionNumber: correct.number,
         statement: correct.statement,
-        selectedOptionText: optionsResult.rows.find(option =>
+        selectedOptionText: options.find(option =>
           option.question_number === correct.number && option.code === selected!.optionCode)!.text,
         correctOptionText: correct.correct_text ?? correct.code!,
         selectedOption: selected!.optionCode,

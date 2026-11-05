@@ -10,9 +10,10 @@ export interface SubmittedAnswer {
 // Consultar si el estudiante ya presentó el examen
 export async function findAttempt(
   studentId: string,
-  examId: string
+  examId: string,
+  client?: PoolClient
 ): Promise<boolean> {
-  const result = await pool.query(
+  const result = await (client ?? pool).query(
     `SELECT 1
      FROM exam_attempts
      WHERE user_id = $1
@@ -138,3 +139,82 @@ export async function findAttemptResult(
   };
 }
 
+export interface CorrectAnswerRow {
+  number: number;
+  code: string | null;
+  statement: string;
+  correct_text: string | null;
+}
+
+export interface OptionRow {
+  question_number: number;
+  code: string;
+  text: string;
+}
+
+export async function isStudent(studentId: string, client?: PoolClient) {
+  const studentResult = await (client ?? pool).query(
+    `SELECT u.id
+     FROM users u
+     JOIN user_roles ur ON ur.user_id = u.id
+     JOIN roles r ON r.id = ur.role_id
+     WHERE u.id = $1
+       AND r.code = 'STUDENT'`,
+    [studentId]
+  );
+
+  return (studentResult.rowCount ?? 0) > 0;
+}
+
+export async function doesExamExist(examId: string) {
+  const examResult = await pool.query(
+    `SELECT id FROM exams WHERE id = $1`,
+    [examId]
+  );
+
+  return (examResult.rowCount ?? 0) > 0;
+}
+
+export async function lockActiveExam(examId: string, client: PoolClient) {
+  const examResult = await client.query(
+    `SELECT id
+     FROM exams
+     WHERE id = $1
+       AND is_active = TRUE
+     FOR SHARE`,
+    [examId]
+  );
+
+  return (examResult.rowCount ?? 0) > 0;
+}
+
+export async function findCorrectAnswers(examId: string, client: PoolClient) {
+  const correctResult = await client.query<CorrectAnswerRow>(
+    `SELECT
+       q.number,
+       q.statement,
+       o.code,
+       o.text AS correct_text
+     FROM questions q
+     LEFT JOIN options o
+       ON o.exam_id = q.exam_id
+       AND o.question_number = q.number
+       AND o.is_correct = TRUE
+     WHERE q.exam_id = $1
+     ORDER BY q.number`,
+    [examId]
+  );
+
+  return correctResult.rows;
+}
+
+export async function findExamOptions(examId: string, client: PoolClient) {
+  const optionsResult = await client.query<OptionRow>(
+    `SELECT question_number, code, text
+     FROM options
+     WHERE exam_id = $1`,
+    [examId]
+  );
+
+  return optionsResult.rows;
+}

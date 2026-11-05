@@ -1,4 +1,4 @@
-import { findAllResults } from "../repositories/teacher.repository";
+import { findAllResults, findAllStudents } from "../repositories/teacher.repository";
 
 export async function getAllStudentResults() {
   const results = await findAllResults();
@@ -7,4 +7,8 @@ export async function getAllStudentResults() {
     ...result,
     grade: `${result.score}/${result.total}`,
   }));
+}
+
+export async function getAllStudents() {
+  return findAllStudents();
 }
