@@ -89,14 +89,6 @@ npm run build
 npm start
 ```
 
-## Supuestos y pendientes
-
-El intento único se interpreta por estudiante y examen. Las tablas de roles y permisos anticipan una ampliación posterior. Faltan la entrada por correo, consulta y envío del examen, calificación, recuperación del resultado y la interfaz final. La integración LTI queda fuera del alcance actual.
-
-Con más tiempo: implementar pruebas del envío transaccional y del doble envío, conservar la calificación histórica e incorporar un gestor de migraciones incremental.
-
-Se utilizó asistencia de IA (Codex) para revisar el proyecto, configurar la ejecución con Docker y documentarla.
-
 ## Frontend sin Docker
 
 Con Node.js 24, desde `frontend/`:
