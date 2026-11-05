@@ -9,3 +9,11 @@ coverage/
 # Cookies de pruebas
 *cookies*.txt
 auth-cookies.txt
+
+# Archivos generados por Playwright
+.playwright-cli/
+.playwright/
+playwright-report/
+blob-report/
+test-results/
+/output/playwright/

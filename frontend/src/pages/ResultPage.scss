@@ -1,0 +1,82 @@
+@use "../styles/variables" as *;
+
+.result {
+  &__grade {
+    margin: 24px 0 12px;
+    font-size: clamp(20px, 4vw, 28px);
+  }
+
+  &__note {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  &__answers {
+    display: grid;
+    gap: 24px;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+
+  &__answer {
+    min-width: 0;
+    padding: clamp(16px, 3vw, 28px);
+    border: 1px solid $color-ballerina;
+    border-radius: 14px;
+    overflow-wrap: anywhere;
+  }
+
+  &__heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  &__number {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  &__badge {
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+
+    &--correct {
+      color: #166534;
+      background: #f0fdf4;
+    }
+
+    &--incorrect {
+      color: #991b1b;
+      background: #fef2f2;
+    }
+  }
+
+  &__question {
+    margin: 20px 0;
+    font-size: 18px;
+    line-height: 1.6;
+  }
+
+  &__detail {
+    display: grid;
+    gap: 16px;
+    margin: 0;
+    line-height: 1.6;
+
+    dt {
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+
+    dd {
+      margin: 0;
+      font-size: 15px;
+    }
+  }
+}

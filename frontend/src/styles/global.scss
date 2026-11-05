@@ -1,0 +1,53 @@
+@use "./variables" as *;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: $color-background;
+  color: $color-text;
+  font-family: Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+:focus-visible {
+  outline: 3px solid $color-deep-blue;
+  outline-offset: 3px;
+}
+
+.app-error {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  min-height: 100svh;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px;
+
+  button {
+    padding: 12px 20px;
+    color: $color-white;
+    background: $color-deep-blue;
+    border: 0;
+    border-radius: 10px;
+  }
+}
