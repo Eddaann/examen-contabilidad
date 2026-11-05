@@ -14,4 +14,4 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
 USER node
 EXPOSE 3000
-CMD ["node", "dist/server.js"]
+CMD ["sh", "-c", "node dist/scripts/seed-users.js && exec node dist/server.js"]

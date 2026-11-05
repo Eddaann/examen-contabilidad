@@ -5,3 +5,7 @@ dist/
 !.env.example
 .DS_Store
 coverage/
+
+# Cookies de pruebas
+*cookies*.txt
+auth-cookies.txt

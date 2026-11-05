@@ -13,8 +13,11 @@ services:
       - ./database/migrations/001_create_identity.sql:/docker-entrypoint-initdb.d/001_create_identity.sql:ro
       - ./database/migrations/002_create_exams.sql:/docker-entrypoint-initdb.d/002_create_exams.sql:ro
       - ./database/migrations/003_create_attempts.sql:/docker-entrypoint-initdb.d/003_create_attempts.sql:ro
-      - ./database/seeds/001_roles_permissions.sql:/docker-entrypoint-initdb.d/004_roles_permissions.sql:ro
-      - ./database/seeds/002_test_data.sql:/docker-entrypoint-initdb.d/005_test_data.sql:ro
+      - ./database/migrations/004_preserve_attempt_results.sql:/docker-entrypoint-initdb.d/004_preserve_attempt_results.sql:ro
+      - ./database/migrations/005_create_auth_sessions.sql:/docker-entrypoint-initdb.d/005_create_auth_sessions.sql:ro
+      - ./database/migrations/006_create_auth_rate_limits.sql:/docker-entrypoint-initdb.d/006_create_auth_rate_limits.sql:ro
+      - ./database/seeds/001_roles_permissions.sql:/docker-entrypoint-initdb.d/007_roles_permissions.sql:ro
+      - ./database/seeds/002_test_data.sql:/docker-entrypoint-initdb.d/008_test_data.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
@@ -27,6 +30,10 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
+      TRUST_PROXY: "1"
+      JWT_SECRET: ${JWT_SECRET:?Configura JWT_SECRET en el archivo .env}
+      TEST_STUDENT_PASSWORD: ${TEST_STUDENT_PASSWORD:?Configura TEST_STUDENT_PASSWORD en el archivo .env}
+      TEST_TEACHER_PASSWORD: ${TEST_TEACHER_PASSWORD:?Configura TEST_TEACHER_PASSWORD en el archivo .env}
       PORT: 3000
       DB_HOST: db
       DB_PORT: 5432
