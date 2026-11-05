@@ -52,7 +52,7 @@ Para borrar completamente la base local y volver a cargar los datos iniciales, e
 
 ## Base de datos
 
-PostgreSQL ejecuta los tres SQL de `database/migrations/` y después los dos de `database/seeds/`, en orden, al inicializar un volumen vacío. Se crean las tablas, roles, permisos, tres estudiantes y el examen con sus cinco preguntas y veinte opciones.
+PostgreSQL ejecuta los cuatro SQL de `database/migrations/` y después los dos de `database/seeds/`, en orden, al inicializar un volumen vacío. Se crean las tablas, roles, permisos, tres estudiantes y el examen con sus cinco preguntas y veinte opciones.
 
 Cuentas de prueba:
 
@@ -112,3 +112,30 @@ Vite indica la URL local y redirige `/api` a `http://localhost:3000`, donde debe
 ## Comprobación de autenticación
 
 Desde `backend/`, ejecuta `npm run test:integration`. Requiere PostgreSQL accesible con las credenciales de `.env` y permiso para crear una base temporal. La prueba crea y elimina su propia base sin modificar la del proyecto; comprueba la carga repetible de cuentas, rechazo del acceso por correo sin contraseña y sesiones antiguas, acceso de alumnos y profesores, envío único y recuperación del resultado.
+
+## Permisos del examen
+
+Los permisos se consultan en la base en cada petición; retirarlos tiene efecto sobre sesiones ya iniciadas.
+
+| Operación | Requisito |
+| --- | --- |
+| `GET /api/exams/:examId` | Sesión y `exam:read` |
+| `POST /api/exams/:examId/submit` | Sesión de estudiante y `exam:submit` |
+| `GET /api/students/me/exams/:examId/status` | Sesión de estudiante y `result:read:own` |
+| `GET /api/students/me/exams/:examId/result` | Sesión de estudiante y `result:read:own` |
+
+El identificador del estudiante procede de su sesión. Una petición sin sesión recibe 401; una sesión sin el permiso requerido recibe 403. Los permisos de profesor siguen siendo `student:read:all` y `result:read:all`; no conceden por sí solos acceso a contestar o consultar el examen. Las pruebas de integración comprueban la revocación y restitución de los tres permisos de estudiante sin volver a iniciar sesión y verifican que un envío rechazado no registre intentos ni respuestas.
+
+## Conservación de resultados históricos
+
+Al enviar se guardan `score` y `total_questions` en `exam_attempts`, y la opción correcta original (`correct_option_code`) y su evaluación (`is_correct`) en cada `attempt_answers`, junto con la opción elegida. El cálculo y guardado usan una sola transacción y una vista consistente de los datos. Los resultados de alumnos y profesores leen los valores guardados; cambiar la clave o agregar preguntas no recalifica intentos anteriores. Los siguientes envíos usan el examen vigente.
+
+La migración `database/migrations/004_preserve_attempt_results.sql` se ejecuta automáticamente al crear un volumen nuevo. En una instalación existente, aplícala una sola vez antes de iniciar la versión nueva del backend, desde la raíz:
+
+```bash
+docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < database/migrations/004_preserve_attempt_results.sql
+```
+
+La migración conserva intentos y respuestas existentes y reconstruye su corrección con la clave disponible al migrar. No puede recuperar una clave histórica que ya haya sido modificada. Si faltan respuestas correctas para reconstruir los datos, la migración falla y revierte sus cambios. La base local de esta revisión ya fue migrada.
+
+Las pruebas de integración cubren la migración de un intento previo con respuestas correctas e incorrectas, la conservación del resultado del estudiante y profesor tras editar la clave y agregar una pregunta, y el cálculo de envíos nuevos con la configuración actualizada.

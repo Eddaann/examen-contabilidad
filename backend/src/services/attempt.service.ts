@@ -73,7 +73,7 @@ export async function submitExam(
   const client = await pool.connect();
 
   try {
-    await client.query("BEGIN");
+    await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ");
 
     // Verificar el rol del estudiante
     const studentResult = await client.query(
@@ -207,14 +207,6 @@ export async function submitExam(
       );
     }
 
-    // Guardar intento y respuestas en la misma transacción
-    await saveExamAttempt(
-      client,
-      studentId,
-      examId,
-      answers
-    );
-
     // Calcular los aciertos
     const details = correctAnswers.map((correct) => {
       const selected = answers.find(
@@ -224,7 +216,7 @@ export async function submitExam(
       return {
         questionNumber: correct.number,
         selectedOption: selected!.optionCode,
-        correctOption: correct.code,
+        correctOption: correct.code!,
         isCorrect: selected!.optionCode === correct.code,
       };
     });
@@ -232,6 +224,10 @@ export async function submitExam(
     const score = details.filter(
       (answer) => answer.isCorrect
     ).length;
+
+    await saveExamAttempt(
+      client, studentId, examId, details, score, correctAnswers.length
+    );
 
     await client.query("COMMIT");
 
@@ -281,15 +277,10 @@ export async function getStudentResult(
     questionNumber: answer.question_number,
     selectedOption: answer.selected_option,
     correctOption: answer.correct_option,
-    isCorrect:
-      answer.selected_option === answer.correct_option,
+    isCorrect: answer.is_correct,
   }));
 
-  const score = details.filter(
-    (answer) => answer.isCorrect
-  ).length;
-
-  const total = details.length;
+  const { score, total } = attempt;
 
   return {
     examId,

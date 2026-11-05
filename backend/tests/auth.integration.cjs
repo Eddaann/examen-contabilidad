@@ -34,6 +34,19 @@ test('autenticación, cuentas de prueba y permisos efectivos del estudiante', as
       'seeds/002_test_data.sql',
     ]) await database.query(fs.readFileSync(`../database/${file}`, 'utf8'));
 
+    // Migrar un intento antiguo con respuestas correctas e incorrectas.
+    await database.query(`INSERT INTO exam_attempts (user_id, exam_id) VALUES (1, 1)`);
+    await database.query(`INSERT INTO attempt_answers
+      (user_id, exam_id, question_number, option_code)
+      SELECT 1, 1, number, 'B' FROM questions WHERE exam_id = 1`);
+    await database.query(fs.readFileSync('../database/migrations/004_preserve_attempt_results.sql', 'utf8'));
+    const migrated = await database.query('SELECT score, total_questions FROM exam_attempts');
+    assert.deepEqual(migrated.rows, [{ score: 2, total_questions: 5 }]);
+    const migratedAnswers = await database.query('SELECT correct_option_code, is_correct FROM attempt_answers ORDER BY question_number');
+    assert.deepEqual(migratedAnswers.rows.map(row => row.correct_option_code), ['A', 'B', 'A', 'B', 'A']);
+    assert.deepEqual(migratedAnswers.rows.map(row => row.is_correct), [false, true, false, true, false]);
+    await database.query('DELETE FROM attempt_answers; DELETE FROM exam_attempts');
+
     const seed = () => execFileSync(process.execPath, ['dist/scripts/seed-users.js'], {
       env: process.env, stdio: 'ignore',
     });
@@ -133,6 +146,41 @@ test('autenticación, cuentas de prueba y permisos efectivos del estudiante', as
     assert.equal((await call('GET', '/api/teacher/results', null, teacher.cookie)).status, 200);
     assert.equal((await call('GET', statusPath, null, teacher.cookie)).status, 403);
     assert.equal((await call('GET', '/api/exams/1', null, teacher.cookie)).status, 403);
+
+    const student = await call('POST', '/api/auth/login', {
+      email: 'alumno1@ejemplo.com', password: process.env.TEST_STUDENT_PASSWORD,
+    });
+    const historical = await call('GET', '/api/students/me/exams/1/result', null, student.cookie);
+    const teacherHistorical = await call('GET', '/api/teacher/results', null, teacher.cookie);
+    await database.query(`UPDATE options SET is_correct = FALSE WHERE exam_id = 1 AND question_number = 1;
+      UPDATE options SET is_correct = TRUE WHERE exam_id = 1 AND question_number = 1 AND code = 'B';
+      INSERT INTO questions (exam_id, number, statement) VALUES (1, 6, 'Pregunta agregada después del envío');
+      INSERT INTO options (exam_id, question_number, code, text, is_correct) VALUES (1, 6, 'A', 'Nueva opción', TRUE)`);
+    const unchanged = await call('GET', '/api/students/me/exams/1/result', null, student.cookie);
+    assert.equal(unchanged.status, 200);
+    assert.deepEqual(unchanged.data, historical.data);
+    assert.equal(unchanged.data.grade, '5/5');
+    assert.equal(unchanged.data.details[0].correctOption, 'A');
+    assert.equal(unchanged.data.details[0].isCorrect, true);
+    assert.deepEqual((await call('GET', '/api/teacher/results', null, teacher.cookie)).data, teacherHistorical.data);
+
+    // Los envíos nuevos sí usan la clave y el total actualizados.
+    assert.equal((await call('POST', '/api/auth/register', {
+      email: 'nuevo@ejemplo.com', password: process.env.TEST_STUDENT_PASSWORD,
+    })).status, 201);
+    const newStudent = await call('POST', '/api/auth/login', {
+      email: 'nuevo@ejemplo.com', password: process.env.TEST_STUDENT_PASSWORD,
+    });
+    const newAnswers = [1, 2, 3, 4, 5, 6].map(n => ({
+      questionNumber: n, optionCode: n === 6 || n % 2 ? 'A' : 'B',
+    }));
+    const newResult = await call('POST', '/api/exams/1/submit', { answers: newAnswers }, newStudent.cookie);
+    assert.equal(newResult.status, 201);
+    assert.equal(newResult.data.result.grade, '5/6');
+    assert.equal(newResult.data.result.details[0].correctOption, 'B');
+    assert.equal(newResult.data.result.details[0].isCorrect, false);
+    assert.equal((await call('GET', '/api/students/me/exams/1/result', null, newStudent.cookie)).data.grade, '5/6');
+
   } finally {
     if (server) await new Promise(resolve => server.close(resolve));
     if (pool) await pool.end();

@@ -37,23 +37,8 @@ export async function findAllResults(): Promise<StudentResultRow[]> {
        e.title AS "examTitle",
        a.submitted_at AS "submittedAt",
 
-       (
-         SELECT COUNT(*)::INTEGER
-         FROM attempt_answers aa
-         JOIN options o
-           ON o.exam_id = aa.exam_id
-           AND o.question_number = aa.question_number
-           AND o.code = aa.option_code
-         WHERE aa.user_id = a.user_id
-           AND aa.exam_id = a.exam_id
-           AND o.is_correct = TRUE
-       ) AS score,
-
-       (
-         SELECT COUNT(*)::INTEGER
-         FROM questions q
-         WHERE q.exam_id = a.exam_id
-       ) AS total
+       a.score,
+       a.total_questions AS total
 
      FROM exam_attempts a
      JOIN users u ON u.id = a.user_id

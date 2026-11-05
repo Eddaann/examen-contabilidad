@@ -23,21 +23,32 @@ export async function findAttempt(
   return (result.rowCount ?? 0) > 0;
 }
 
-// Guardar el intento y sus respuestas
+export interface GradedAnswer {
+  questionNumber: number;
+  selectedOption: string;
+  correctOption: string;
+  isCorrect: boolean;
+}
+
+// Guardar el intento y su corrección histórica en la misma transacción
 export async function saveExamAttempt(
   client: PoolClient,
   studentId: string,
   examId: string,
-  answers: SubmittedAnswer[]
+  answers: GradedAnswer[],
+  score: number,
+  total: number
 ): Promise<void> {
   // Registrar el intento
   await client.query(
     `INSERT INTO exam_attempts (
       user_id,
-      exam_id
+      exam_id,
+      score,
+      total_questions
     )
-    VALUES ($1, $2)`,
-    [studentId, examId]
+    VALUES ($1, $2, $3, $4)`,
+    [studentId, examId, score, total]
   );
 
   // Registrar cada respuesta seleccionada
@@ -47,14 +58,18 @@ export async function saveExamAttempt(
         user_id,
         exam_id,
         question_number,
-        option_code
+        option_code,
+        correct_option_code,
+        is_correct
       )
-      VALUES ($1, $2, $3, $4)`,
+      VALUES ($1, $2, $3, $4, $5, $6)`,
       [
         studentId,
         examId,
         answer.questionNumber,
-        answer.optionCode,
+        answer.selectedOption,
+        answer.correctOption,
+        answer.isCorrect,
       ]
     );
   }
@@ -63,12 +78,15 @@ export async function saveExamAttempt(
 
 interface AttemptResultRow {
   submitted_at: Date;
+  score: number;
+  total_questions: number;
 }
 
 export interface SavedAnswerRow {
   question_number: number;
   selected_option: string;
   correct_option: string;
+  is_correct: boolean;
 }
 
 export async function findAttemptResult(
@@ -77,7 +95,7 @@ export async function findAttemptResult(
 ) {
   // Recuperar el intento y su fecha
   const attemptResult = await pool.query<AttemptResultRow>(
-    `SELECT submitted_at
+    `SELECT submitted_at, score, total_questions
      FROM exam_attempts
      WHERE user_id = $1 AND exam_id = $2`,
     [studentId, examId]
@@ -92,12 +110,9 @@ export async function findAttemptResult(
     `SELECT
        a.question_number,
        a.option_code AS selected_option,
-       o.code AS correct_option
+       a.correct_option_code AS correct_option,
+       a.is_correct
      FROM attempt_answers a
-     JOIN options o
-       ON o.exam_id = a.exam_id
-       AND o.question_number = a.question_number
-       AND o.is_correct = TRUE
      WHERE a.user_id = $1
        AND a.exam_id = $2
      ORDER BY a.question_number`,
@@ -106,6 +121,8 @@ export async function findAttemptResult(
 
   return {
     submittedAt: attemptResult.rows[0].submitted_at,
+    score: attemptResult.rows[0].score,
+    total: attemptResult.rows[0].total_questions,
     answers: answersResult.rows,
   };
 }
