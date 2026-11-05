@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('node:child_process');
 const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 
@@ -48,6 +48,37 @@ test('autenticación, cuentas de prueba y permisos efectivos del estudiante', as
     await database.query('DELETE FROM attempt_answers; DELETE FROM exam_attempts');
     await database.query(fs.readFileSync('../database/migrations/005_create_auth_sessions.sql', 'utf8'));
     await database.query(fs.readFileSync('../database/migrations/006_create_auth_rate_limits.sql', 'utf8'));
+
+    const checkStartupFailure = (table) => {
+      const startup = spawnSync(process.execPath, ['dist/server.js'], {
+        env: { ...process.env, PORT: '0' }, encoding: 'utf8', timeout: 5000,
+      });
+      assert.equal(startup.error, undefined);
+      assert.equal(startup.status, 1);
+      assert.match(startup.stderr, /Esquema incompleto/);
+      assert.ok(startup.stderr.includes(table));
+      assert.match(startup.stderr, /migraciones pendientes/);
+      assert.ok(!startup.stdout.includes('Servidor iniciado'));
+    };
+    for (const table of ['auth_sessions', 'auth_rate_limits']) {
+      await database.query(`ALTER TABLE ${table} RENAME TO ${table}_unavailable`);
+      try {
+        checkStartupFailure(table);
+      } finally {
+        await database.query(`ALTER TABLE ${table}_unavailable RENAME TO ${table}`);
+      }
+    }
+    await database.query('ALTER TABLE exam_attempts RENAME COLUMN score TO score_unavailable');
+    try {
+      checkStartupFailure('exam_attempts');
+    } finally {
+      await database.query('ALTER TABLE exam_attempts RENAME COLUMN score_unavailable TO score');
+    }
+    execFileSync(process.execPath, ['-e', `
+      const { validateSchema } = require('./dist/config/schema');
+      const { pool } = require('./dist/config/database');
+      validateSchema().catch(() => { process.exitCode = 1; }).finally(() => pool.end());
+    `], { env: process.env, stdio: 'ignore' });
 
     const seed = () => execFileSync(process.execPath, ['dist/scripts/seed-users.js'], {
       env: process.env, stdio: 'ignore',

@@ -96,7 +96,7 @@ curl --fail http://localhost:8080/api/health
 curl --fail http://localhost:8080/api/health/db
 ```
 
-Sustituye `8080` si cambiaste el puerto del frontend. Los dos endpoints deben responder con HTTP 200.
+Sustituye `8080` si cambiaste el puerto del frontend. Los dos endpoints deben responder con HTTP 200. `/api/health/db` comprueba la conexión con PostgreSQL. Antes de escuchar peticiones, el backend valida las tablas y columnas requeridas; si faltan, termina con código 1 e indica qué tabla revisar y que deben aplicarse las migraciones pendientes. Esta validación no ejecuta migraciones ni comprueba todos los índices, restricciones o triggers.
 
 ### Apagar, reiniciar y actualizar
 
