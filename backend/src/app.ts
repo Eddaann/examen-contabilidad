@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 
 import { pool } from "./config/database";
 
+import authRoutes from "./routes/auth.routes";
 import studentRoutes from "./routes/student.routes";
 import examRoutes from "./routes/exam.routes";
 import attemptRoutes from "./routes/attempt.routes";
@@ -47,6 +48,7 @@ app.get("/api/health/db", async (_req, res) => {
 });
 
 // Rutas de la API
+app.use("/api/auth", authRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/exams", examRoutes);
 app.use("/api/students", attemptRoutes);
