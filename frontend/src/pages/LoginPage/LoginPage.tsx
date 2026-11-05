@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { login, type AuthUser } from "../../api/auth.api";
 import { ApiError, errorMessage } from "../../api/client";
+import Button from "../../components/Button";
 import "./LoginPage.scss";
 
 interface LoginPageProps {
@@ -87,13 +88,14 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               </p>
             )}
 
-            <button
+            <Button
               className="login__button"
               type="submit"
-              disabled={loading}
+              loading={loading}
+              loadingLabel="Ingresando..."
             >
-              {loading ? "Ingresando..." : "Iniciar sesión"}
-            </button>
+              Iniciar sesión
+            </Button>
           </form>
         </div>
       </section>

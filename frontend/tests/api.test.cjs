@@ -6,7 +6,7 @@ const path = require('node:path');
 const ts = require('typescript');
 
 const compiled = fs.mkdtempSync(path.join(os.tmpdir(), 'examen-api-'));
-for (const name of ['client', 'auth.api']) {
+for (const name of ['client', 'auth.api', 'exam.api']) {
   const source = fs.readFileSync(path.join(__dirname, '../src/api', `${name}.ts`), 'utf8');
   const result = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
@@ -70,4 +70,32 @@ test('fallos de red y timeout permiten reintentar', async t => {
 
 test('errores desconocidos no exponen detalles internos', () => {
   assert.equal(errorMessage(new Error('PRIVATE_STACK')), 'Ocurrió un error inesperado. Inténtalo de nuevo.');
+});
+
+const { getExam, getExamStatus, submitExam, getExamResult } = require(path.join(compiled, 'exam.api.js'));
+const examResult = {
+  score: 1, total: 1, grade: '1/1',
+  details: [{ questionNumber: 1, selectedOption: 'A', correctOption: 'A', isCorrect: true }],
+};
+
+test('examen valida datos y entrega el resultado confirmado del envío', async t => {
+  const mock = t.mock.method(globalThis, 'fetch', async () => json({ result: examResult }, 201));
+  assert.deepEqual(await submitExam('2', [{ questionNumber: 1, optionCode: 'A' }]), examResult);
+  mock.mock.mockImplementation(async () => json(examResult));
+  assert.deepEqual(await getExamResult('2'), examResult);
+  mock.mock.mockImplementation(async () => json({ submitted: 'false' }));
+  await assert.rejects(getExamStatus('2'), e => e instanceof ApiError && e.message.includes('información inválida'));
+  mock.mock.mockImplementation(async () => json({ id: '2', title: 'Examen', description: null, questions: [] }));
+  await assert.rejects(getExam('2'), e => e.message.includes('información inválida'));
+  mock.mock.mockImplementation(async () => json({ result: { score: 1, total: 1, grade: '1/1' } }));
+  await assert.rejects(submitExam('2', []), e => e.message.includes('información inválida'));
+});
+
+test('examen conserva códigos HTTP para recuperar envíos y sesiones vencidas', async t => {
+  const mock = t.mock.method(globalThis, 'fetch', async () => json({}, 409));
+  await assert.rejects(submitExam('2', []), e => e.status === 409);
+  mock.mock.mockImplementation(async () => json({}, 400));
+  await assert.rejects(submitExam('2', []), e => e.status === 400 && e.message.includes('respuesta válida'));
+  mock.mock.mockImplementation(async () => json({}, 401));
+  await assert.rejects(getExam('2'), e => e.status === 401);
 });

@@ -1,0 +1,98 @@
+@use "../../styles/variables" as *;
+
+.confirm-dialog {
+  width: calc(100% - 32px);
+  max-width: 460px;
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid $color-ballerina;
+  border-radius: 16px;
+  background-color: $color-white;
+  color: $color-deep-blue;
+  box-shadow: 0 16px 48px rgba(9, 49, 141, 0.12);
+
+  &::backdrop {
+    background-color: rgba(9, 49, 141, 0.42);
+  }
+
+  &__content {
+    padding: 32px;
+  }
+
+  &__tag {
+    display: inline-block;
+    margin-bottom: 16px;
+    color: $color-deep-blue;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  &__title {
+    margin: 0 0 16px;
+    font-size: clamp(26px, 4vw, 32px);
+    line-height: 1.2;
+  }
+
+  &__description {
+    margin: 0 0 32px;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+
+  &__button {
+    min-height: 46px;
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+
+    &--secondary {
+      border: 1px solid $color-deep-blue;
+      background-color: $color-white;
+      color: $color-deep-blue;
+
+      &:hover:not(:disabled) {
+        background-color: $color-ballerina;
+      }
+    }
+
+    &--primary {
+      border: 1px solid $color-deep-blue;
+      background-color: $color-deep-blue;
+      color: $color-white;
+
+      &:hover:not(:disabled) {
+        opacity: 0.9;
+      }
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  @media (max-width: 480px) {
+    &__content {
+      padding: 24px;
+    }
+
+    &__actions {
+      flex-direction: column-reverse;
+    }
+
+    &__button {
+      width: 100%;
+    }
+  }
+}
