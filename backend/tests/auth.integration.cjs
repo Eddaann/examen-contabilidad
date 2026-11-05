@@ -147,6 +147,25 @@ test('autenticación, cuentas de prueba y permisos efectivos del estudiante', as
     assert.equal((await call('GET', statusPath, null, teacher.cookie)).status, 403);
     assert.equal((await call('GET', '/api/exams/1', null, teacher.cookie)).status, 403);
 
+    // El arranque no debe restaurar roles retirados de cuentas existentes.
+    await database.query(`DELETE FROM user_roles
+      WHERE user_id = (SELECT id FROM users WHERE email = 'profesor1@ejemplo.com')`);
+    assert.equal((await call('GET', '/api/teacher/students', null, teacher.cookie)).status, 403);
+    seed();
+    assert.equal((await call('GET', '/api/teacher/students', null, teacher.cookie)).status, 403);
+    assert.equal((await call('GET', '/api/teacher/results', null, teacher.cookie)).status, 403);
+    const existingTeacherRoles = await database.query(`SELECT 1 FROM user_roles
+      WHERE user_id = (SELECT id FROM users WHERE email = 'profesor1@ejemplo.com')`);
+    assert.equal(existingTeacherRoles.rowCount, 0);
+    const hashesAfterRoleRemoval = await database.query('SELECT id, password_hash FROM users ORDER BY id');
+    assert.ok(after.rows.every((row, i) => row.password_hash === hashesAfterRoleRemoval.rows[i].password_hash));
+
+    // Restauración explícita de la fixture para las comprobaciones históricas.
+    await database.query(`INSERT INTO user_roles (user_id, role_id)
+      SELECT u.id, r.id FROM users u CROSS JOIN roles r
+      WHERE u.email = 'profesor1@ejemplo.com' AND r.code = 'TEACHER'`);
+
+
     const student = await call('POST', '/api/auth/login', {
       email: 'alumno1@ejemplo.com', password: process.env.TEST_STUDENT_PASSWORD,
     });

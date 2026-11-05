@@ -61,7 +61,7 @@ Cuentas de prueba:
 - `alumno3@ejemplo.com`
 - `profesor1@ejemplo.com` (rol `TEACHER`)
 
-El backend prepara estas cuentas automáticamente antes de iniciar en Docker. Los alumnos utilizan el valor privado de `TEST_STUDENT_PASSWORD` y el profesor el de `TEST_TEACHER_PASSWORD`, definidos en `.env`. Las contraseñas no se incluyen en el repositorio ni se imprimen; en PostgreSQL solo se guardan hashes Argon2id. La carga puede repetirse y no reemplaza contraseñas ya configuradas ni borra intentos. Cambiar estas variables no cambia contraseñas existentes.
+El backend prepara estas cuentas automáticamente antes de iniciar en Docker. Los alumnos utilizan el valor privado de `TEST_STUDENT_PASSWORD` y el profesor el de `TEST_TEACHER_PASSWORD`, definidos en `.env`. Las contraseñas no se incluyen en el repositorio ni se imprimen; en PostgreSQL solo se guardan hashes Argon2id. La carga puede repetirse y no reemplaza contraseñas ya configuradas ni borra intentos. Solo asigna el rol inicial a las cuentas que crea; no restaura roles retirados ni modifica los de cuentas existentes. Para los alumnos iniciales del SQL sin contraseña, únicamente configura su contraseña inicial y conserva sus roles. Cambiar estas variables no cambia contraseñas existentes.
 
 En una base existente con las tablas y roles creados, puedes cargar las cuentas desde `backend/` con `npm run seed:users`. El arranque local con `npm run dev` no ejecuta esa carga automáticamente.
 

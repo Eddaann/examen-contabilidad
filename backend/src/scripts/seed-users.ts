@@ -25,24 +25,30 @@ async function seedUsers(): Promise<void> {
       const hash = await argon2.hash(user.password, { type: argon2.argon2id });
       const result = await client.query<{ id: string }>(
         `INSERT INTO users (email, password_hash) VALUES ($1, $2)
-         ON CONFLICT (LOWER(email)) DO UPDATE
-         SET password_hash = COALESCE(users.password_hash, EXCLUDED.password_hash)
+         ON CONFLICT (LOWER(email)) DO NOTHING
          RETURNING id`,
         [user.email, hash]
       );
+      const createdUser = result.rows[0];
+
+      if (!createdUser) {
+        // Compatibilidad con alumnos iniciales creados por el SQL sin contraseña.
+        // No modificar sus roles ni una contraseña ya configurada.
+        await client.query(
+          `UPDATE users SET password_hash = $2
+           WHERE email = $1 AND password_hash IS NULL`,
+          [user.email, hash]
+        );
+        continue;
+      }
+
       const role = await client.query(
         `INSERT INTO user_roles (user_id, role_id)
-         SELECT $1, id FROM roles WHERE code = $2
-         ON CONFLICT DO NOTHING`,
-        [result.rows[0]!.id, user.role]
+         SELECT $1, id FROM roles WHERE code = $2`,
+        [createdUser.id, user.role]
       );
-      if (!role.rowCount) {
-        const existing = await client.query(
-          `SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-           WHERE ur.user_id = $1 AND r.code = $2`,
-          [result.rows[0]!.id, user.role]
-        );
-        if (!existing.rowCount) throw new Error("Falta un rol requerido para las cuentas de prueba");
+      if (role.rowCount !== 1) {
+        throw new Error("Falta un rol requerido para las cuentas de prueba");
       }
     }
     await client.query("COMMIT");
