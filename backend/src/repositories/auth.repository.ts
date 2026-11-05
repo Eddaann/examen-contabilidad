@@ -98,3 +98,40 @@ export async function findUserCredentials(
   return result.rows[0] ?? null;
 }
 
+export interface AuthenticatedUser {
+  id: string;
+  email: string;
+  roles: string[];
+}
+
+export async function findUserById(
+  userId: string
+): Promise<AuthenticatedUser | null> {
+  const result = await pool.query<{
+    id: string;
+    email: string;
+    roles: string[];
+  }>(
+    `SELECT
+       u.id,
+       u.email,
+       COALESCE(
+         ARRAY_AGG(r.code) FILTER (
+           WHERE r.code IS NOT NULL
+         ),
+         ARRAY[]::VARCHAR[]
+       ) AS roles
+     FROM users u
+     LEFT JOIN user_roles ur
+       ON ur.user_id = u.id
+     LEFT JOIN roles r
+       ON r.id = ur.role_id
+     WHERE u.id = $1
+       AND u.password_hash IS NOT NULL
+     GROUP BY u.id, u.email`,
+    [userId]
+  );
+
+  return result.rows[0] ?? null;
+}
+

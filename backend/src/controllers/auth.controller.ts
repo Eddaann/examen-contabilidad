@@ -1,11 +1,11 @@
 import type { Request, Response } from "express";
-
 import {
   AuthError,
   registerStudent,
   loginUser,
 } from "../services/auth.service";
 import jwt from "jsonwebtoken";
+import type { AuthenticatedUser } from "../repositories/auth.repository";
 
 export async function register(
   req: Request,
@@ -114,3 +114,31 @@ export async function login(
     });
   }
 }
+
+export function getCurrentUser(
+  _req: Request,
+  res: Response
+): void {
+  const user: AuthenticatedUser = res.locals.authUser;
+
+  res.status(200).json({
+    user,
+  });
+}
+
+export function logout(
+  _req: Request,
+  res: Response
+): void {
+  res.clearCookie("auth_session", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+  });
+
+  res.status(200).json({
+    message: "Sesión cerrada correctamente",
+  });
+}
+
