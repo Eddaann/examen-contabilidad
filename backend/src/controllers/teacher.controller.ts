@@ -1,13 +1,12 @@
 import type { Request, Response } from "express";
-import { findAllStudents } from "../repositories/teacher.repository";
-import { getAllStudentResults } from "../services/teacher.service";
+import { getAllStudentResults, getAllStudents } from "../services/teacher.service";
 
 export async function getStudents(
   _req: Request,
   res: Response
 ): Promise<void> {
   try {
-    const students = await findAllStudents();
+    const students = await getAllStudents();
 
     res.status(200).json({ students });
   } catch (error) {

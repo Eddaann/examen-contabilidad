@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('node:child_process');
 const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 
@@ -45,9 +45,56 @@ test('autenticación, cuentas de prueba y permisos efectivos del estudiante', as
     const migratedAnswers = await database.query('SELECT correct_option_code, is_correct FROM attempt_answers ORDER BY question_number');
     assert.deepEqual(migratedAnswers.rows.map(row => row.correct_option_code), ['A', 'B', 'A', 'B', 'A']);
     assert.deepEqual(migratedAnswers.rows.map(row => row.is_correct), [false, true, false, true, false]);
-    await database.query('DELETE FROM attempt_answers; DELETE FROM exam_attempts');
     await database.query(fs.readFileSync('../database/migrations/005_create_auth_sessions.sql', 'utf8'));
     await database.query(fs.readFileSync('../database/migrations/006_create_auth_rate_limits.sql', 'utf8'));
+
+    await database.query(`INSERT INTO exam_attempts (user_id, exam_id, score, total_questions)
+      VALUES (2, 1, 0, 5);
+      INSERT INTO attempt_answers
+        (user_id, exam_id, question_number, option_code, correct_option_code, is_correct)
+      VALUES (2, 1, 1, 'B', 'Z', FALSE)`);
+    await database.query(fs.readFileSync('../database/migrations/007_preserve_attempt_texts.sql', 'utf8'));
+    const migratedTexts = await database.query(
+      'SELECT statement, selected_option_text, correct_option_text FROM attempt_answers WHERE user_id = 1 ORDER BY question_number'
+    );
+    assert.equal(migratedTexts.rows[0].statement, 'El saldo inicial de Bancos es de $850,000.');
+    assert.equal(migratedTexts.rows[0].selected_option_text, 'Abono');
+    assert.equal(migratedTexts.rows[0].correct_option_text, 'Cargo');
+    assert.equal((await database.query(
+      'SELECT correct_option_text FROM attempt_answers WHERE user_id = 2'
+    )).rows[0].correct_option_text, 'Z');
+    await database.query('DELETE FROM attempt_answers; DELETE FROM exam_attempts');
+
+    const checkStartupFailure = (table) => {
+      const startup = spawnSync(process.execPath, ['dist/server.js'], {
+        env: { ...process.env, PORT: '0' }, encoding: 'utf8', timeout: 5000,
+      });
+      assert.equal(startup.error, undefined);
+      assert.equal(startup.status, 1);
+      assert.match(startup.stderr, /Esquema incompleto/);
+      assert.ok(startup.stderr.includes(table));
+      assert.match(startup.stderr, /migraciones pendientes/);
+      assert.ok(!startup.stdout.includes('Servidor iniciado'));
+    };
+    for (const table of ['auth_sessions', 'auth_rate_limits']) {
+      await database.query(`ALTER TABLE ${table} RENAME TO ${table}_unavailable`);
+      try {
+        checkStartupFailure(table);
+      } finally {
+        await database.query(`ALTER TABLE ${table}_unavailable RENAME TO ${table}`);
+      }
+    }
+    await database.query('ALTER TABLE exam_attempts RENAME COLUMN score TO score_unavailable');
+    try {
+      checkStartupFailure('exam_attempts');
+    } finally {
+      await database.query('ALTER TABLE exam_attempts RENAME COLUMN score_unavailable TO score');
+    }
+    execFileSync(process.execPath, ['-e', `
+      const { validateSchema } = require('./dist/config/schema');
+      const { pool } = require('./dist/config/database');
+      validateSchema().catch(() => { process.exitCode = 1; }).finally(() => pool.end());
+    `], { env: process.env, stdio: 'ignore' });
 
     const seed = () => execFileSync(process.execPath, ['dist/scripts/seed-users.js'], {
       env: process.env, stdio: 'ignore',
@@ -144,7 +191,21 @@ test('autenticación, cuentas de prueba y permisos efectivos del estudiante', as
         assert.equal((await call('GET', '/api/students/me/exams/1/result', null, login.cookie)).data.grade, '5/5');
       }
       assert.equal((await call('POST', '/api/exams/1/submit', { answers }, login.cookie)).status, 409);
-      assert.equal((await call('POST', '/api/auth/logout', null, login.cookie)).cookie, 'auth_session=');
+      if (email === 'alumno1@ejemplo.com') {
+
+        await database.query('ALTER TABLE auth_sessions RENAME TO auth_sessions_unavailable');
+        try {
+          const failedLogout = await call('POST', '/api/auth/logout', null, login.cookie);
+          assert.equal(failedLogout.status, 500);
+          assert.equal(failedLogout.cookie, undefined);
+        } finally {
+          await database.query('ALTER TABLE auth_sessions_unavailable RENAME TO auth_sessions');
+        }
+        assert.equal((await call('GET', '/api/auth/me', null, login.cookie)).status, 200);
+      }
+      const logout = await call('POST', '/api/auth/logout', null, login.cookie);
+      assert.equal(logout.status, 200);
+      assert.equal(logout.cookie, 'auth_session=');
       assert.equal((await call('GET', '/api/auth/me', null, login.cookie)).status, 401);
       assert.equal((await call('GET', statusPath, null, login.cookie)).status, 401);
     }
@@ -179,7 +240,9 @@ test('autenticación, cuentas de prueba y permisos efectivos del estudiante', as
     });
     const historical = await call('GET', '/api/students/me/exams/1/result', null, student.cookie);
     const teacherHistorical = await call('GET', '/api/teacher/results', null, teacher.cookie);
-    await database.query(`UPDATE options SET is_correct = FALSE WHERE exam_id = 1 AND question_number = 1;
+    await database.query(`UPDATE questions SET statement = 'Enunciado editado después del envío' WHERE exam_id = 1 AND number = 1;
+      UPDATE options SET text = 'Texto editado después del envío' WHERE exam_id = 1 AND question_number = 1 AND code = 'A';
+      UPDATE options SET is_correct = FALSE WHERE exam_id = 1 AND question_number = 1;
       UPDATE options SET is_correct = TRUE WHERE exam_id = 1 AND question_number = 1 AND code = 'B';
       INSERT INTO questions (exam_id, number, statement) VALUES (1, 6, 'Pregunta agregada después del envío');
       INSERT INTO options (exam_id, question_number, code, text, is_correct) VALUES (1, 6, 'A', 'Nueva opción', TRUE)`);
@@ -206,7 +269,18 @@ test('autenticación, cuentas de prueba y permisos efectivos del estudiante', as
     assert.equal(newResult.data.result.grade, '5/6');
     assert.equal(newResult.data.result.details[0].correctOption, 'B');
     assert.equal(newResult.data.result.details[0].isCorrect, false);
+    assert.equal(newResult.data.result.details[0].statement, 'Enunciado editado después del envío');
+    assert.equal(newResult.data.result.details[0].selectedOptionText, 'Texto editado después del envío');
     assert.equal((await call('GET', '/api/students/me/exams/1/result', null, newStudent.cookie)).data.grade, '5/6');
+
+    // También conservar el texto correcto cuando difiere de la opción elegida.
+    const savedIncorrect = await call('GET', '/api/students/me/exams/1/result', null, newStudent.cookie);
+    await database.query(`UPDATE options SET text = 'Nueva edición de la opción correcta'
+      WHERE exam_id = 1 AND question_number = 1 AND code = 'B'`);
+    assert.deepEqual(
+      (await call('GET', '/api/students/me/exams/1/result', null, newStudent.cookie)).data,
+      savedIncorrect.data
+    );
 
     // Cada login tiene su propia sesión y logout solo revoca la presentada.
     const secondSession = await call('POST', '/api/auth/login', {
