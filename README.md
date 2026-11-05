@@ -6,7 +6,7 @@ Aplicación en desarrollo para responder un examen y consultar el resultado de u
 
 Requisitos: Git y Docker con Docker Compose v2 (incluido en Docker Desktop). No necesitas instalar Node.js ni PostgreSQL en tu equipo.
 
-Después de clonar el repositorio, copia `.env.example` a `.env` y sustituye el valor de ejemplo de `JWT_SECRET` por una clave privada aleatoria. No la publiques ni la incluyas en Git. Después ejecuta desde la raíz:
+Después de clonar el repositorio, copia `.env.example` a `.env` y sustituye el valor de ejemplo de `JWT_SECRET` por una clave privada aleatoria. Configura también `TEST_STUDENT_PASSWORD` y `TEST_TEACHER_PASSWORD` con valores privados de entre 12 y 128 caracteres. No la publiques ni la incluyas en Git. Después ejecuta desde la raíz:
 
 ```bash
 docker compose up --build -d --wait
@@ -14,7 +14,7 @@ docker compose up --build -d --wait
 
 Abre http://localhost:8080. Compose construye el backend y el frontend, prepara PostgreSQL y espera a que los servicios estén disponibles. Las credenciales de PostgreSQL tienen valores locales predeterminados; `JWT_SECRET` es obligatoria y Compose detiene el arranque si falta o está vacía.
 
-El frontend contiene únicamente la estructura mínima de React, sin interfaz (la página se muestra en blanco). La API implementada permite verificar el servidor y la conexión con la base; el flujo del examen sigue pendiente.
+El frontend contiene únicamente la estructura mínima de React, sin interfaz (la página se muestra en blanco). La API implementa acceso con correo y contraseña, consulta y envío del examen, resultados y consultas de profesores protegidas por permisos.
 
 - Frontend: http://localhost:8080
 - API: http://localhost:8080/api/health
@@ -54,11 +54,20 @@ Para borrar completamente la base local y volver a cargar los datos iniciales, e
 
 PostgreSQL ejecuta los tres SQL de `database/migrations/` y después los dos de `database/seeds/`, en orden, al inicializar un volumen vacío. Se crean las tablas, roles, permisos, tres estudiantes y el examen con sus cinco preguntas y veinte opciones.
 
-Estudiantes de prueba:
+Cuentas de prueba:
 
 - `alumno1@ejemplo.com`
 - `alumno2@ejemplo.com`
 - `alumno3@ejemplo.com`
+- `profesor1@ejemplo.com` (rol `TEACHER`)
+
+El backend prepara estas cuentas automáticamente antes de iniciar en Docker. Los alumnos utilizan el valor privado de `TEST_STUDENT_PASSWORD` y el profesor el de `TEST_TEACHER_PASSWORD`, definidos en `.env`. Las contraseñas no se incluyen en el repositorio ni se imprimen; en PostgreSQL solo se guardan hashes Argon2id. La carga puede repetirse y no reemplaza contraseñas ya configuradas ni borra intentos. Cambiar estas variables no cambia contraseñas existentes.
+
+En una base existente con las tablas y roles creados, puedes cargar las cuentas desde `backend/` con `npm run seed:users`. El arranque local con `npm run dev` no ejecuta esa carga automáticamente.
+
+El único acceso es `POST /api/auth/login` con un cuerpo JSON que contenga `email` y `password`. La sesión se guarda en la cookie HTTP-only `auth_session`. Ya no existe `/api/students/access` y las sesiones anteriores de demostración se rechazan. Las consultas del examen también requieren sesión. El registro público crea únicamente estudiantes; no permite elegir rol de profesor.
+
+Por decisión del proyecto, todos los usuarios entran con correo y contraseña, aunque el enunciado original solicita entrada únicamente por correo. La interfaz del examen sigue pendiente.
 
 Los scripts de inicialización no se repiten al reiniciar ni se aplican sobre volúmenes existentes. Si agregas migraciones durante el desarrollo, debes aplicarlas explícitamente a la base existente; este proyecto aún no tiene un gestor incremental de migraciones.
 
@@ -99,3 +108,7 @@ npm run dev
 ```
 
 Vite indica la URL local y redirige `/api` a `http://localhost:3000`, donde debe estar ejecutándose el backend. Para comprobar la compilación: `npm run build`.
+
+## Comprobación de autenticación
+
+Desde `backend/`, ejecuta `npm run test:integration`. Requiere PostgreSQL accesible con las credenciales de `.env` y permiso para crear una base temporal. La prueba crea y elimina su propia base sin modificar la del proyecto; comprueba la carga repetible de cuentas, rechazo del acceso por correo sin contraseña y sesiones antiguas, acceso de alumnos y profesores, envío único y recuperación del resultado.

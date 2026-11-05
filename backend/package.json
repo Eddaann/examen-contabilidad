@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "tsx watch --env-file=../.env src/server.ts",
     "build": "tsc",
-    "start": "node --env-file=../.env dist/server.js"
+    "start": "node --env-file=../.env dist/server.js",
+    "seed:users": "tsx --env-file=../.env src/scripts/seed-users.ts",
+    "test:integration": "npm run build && node --env-file=../.env --test tests/auth.integration.cjs"
   },
   "keywords": [],
   "author": "",

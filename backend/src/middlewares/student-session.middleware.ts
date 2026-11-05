@@ -1,51 +1,21 @@
 import type { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
+import { requireAuth } from "./auth.middleware";
+import type { AuthenticatedUser } from "../repositories/auth.repository";
 
-interface StudentToken {
-  sub: string;
-  type: "student-demo";
-}
-
-export function requireStudentSession(
+export async function requireStudentSession(
   req: Request,
   res: Response,
   next: NextFunction
-): void {
-  const token = req.cookies?.student_session;
-  const secret = process.env.JWT_SECRET;
+): Promise<void> {
+  await requireAuth(req, res, () => {
+    const user = res.locals.authUser as AuthenticatedUser;
 
-  if (typeof token !== "string" || !secret) {
-    res.status(401).json({
-      message: "Sesión no válida",
-    });
-    return;
-  }
-
-  try {
-    const decoded = jwt.verify(token, secret);
-
-    if (
-      typeof decoded === "string" ||
-      decoded.type !== "student-demo" ||
-      typeof decoded.sub !== "string"
-    ) {
-      res.status(401).json({
-        message: "Sesión no válida",
-      });
+    if (!user.roles.includes("STUDENT")) {
+      res.status(403).json({ message: "Estudiante no autorizado" });
       return;
     }
 
-    const student: StudentToken = {
-      sub: decoded.sub,
-      type: "student-demo",
-    };
-
-    res.locals.studentId = student.sub;
-
+    res.locals.studentId = user.id;
     next();
-  } catch {
-    res.status(401).json({
-      message: "Sesión expirada o inválida",
-    });
-  }
+  });
 }
