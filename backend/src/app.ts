@@ -3,6 +3,7 @@ import cors from "cors";
 import { pool } from "./config/database";
 
 import studentRoutes from "./routes/student.routes";
+import examRoutes from "./routes/exam.routes";
 
 const app = express();
 
@@ -36,5 +37,6 @@ app.get("/api/health/db", async (_req, res) => {
 });
 
 app.use("/api/students", studentRoutes);
+app.use("/api/exams", examRoutes);
 
 export default app;
