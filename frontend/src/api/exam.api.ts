@@ -1,7 +1,7 @@
 import { ApiError, apiRequest } from "./client";
 import type { Exam, ExamAnswer, ExamResult, ExamStatus } from "../types/exam.types";
 
-export const EXAM_ID = "2";
+export const EXAM_ID = "1";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";
