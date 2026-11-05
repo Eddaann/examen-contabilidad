@@ -6,7 +6,7 @@ const { execFileSync } = require('node:child_process');
 const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 
-test('acceso exclusivo con contraseña y cuentas de prueba', async () => {
+test('autenticación, cuentas de prueba y permisos efectivos del estudiante', async () => {
   // Requiere una base local y permiso CREATE DATABASE; nunca cambia sus datos.
   const config = {
     host: process.env.DB_HOST,
@@ -64,6 +64,23 @@ test('acceso exclusivo con contraseña y cuentas de prueba', async () => {
           ? await response.json() : null,
       };
     }
+    async function setStudentPermission(permission, enabled) {
+      if (enabled) {
+        await database.query(
+          `INSERT INTO role_permissions (role_id, permission_id)
+           SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+           WHERE r.code = 'STUDENT' AND p.code = $1
+           ON CONFLICT DO NOTHING`, [permission]
+        );
+      } else {
+        await database.query(
+          `DELETE FROM role_permissions
+           WHERE role_id = (SELECT id FROM roles WHERE code = 'STUDENT')
+             AND permission_id = (SELECT id FROM permissions WHERE code = $1)`,
+          [permission]
+        );
+      }
+    }
     const statusPath = '/api/students/me/exams/1/status';
     assert.equal((await call('POST', '/api/students/access', { email: 'alumno1@ejemplo.com' })).status, 404);
     assert.equal((await call('POST', '/api/auth/login', { email: 'alumno1@ejemplo.com' })).status, 400);
@@ -80,8 +97,33 @@ test('acceso exclusivo con contraseña y cuentas de prueba', async () => {
       assert.equal((await call('GET', statusPath, null, login.cookie)).status, 200);
       assert.equal((await call('GET', '/api/teacher/students', null, login.cookie)).status, 403);
       const answers = [1, 2, 3, 4, 5].map(n => ({ questionNumber: n, optionCode: n % 2 ? 'A' : 'B' }));
+      assert.equal((await call('GET', '/api/exams/1', null, login.cookie)).status, 200);
+      if (email === 'alumno1@ejemplo.com') {
+        // Los permisos se retiran y restituyen manteniendo la misma sesión.
+        await setStudentPermission('exam:read', false);
+        assert.equal((await call('GET', '/api/exams/1', null, login.cookie)).status, 403);
+        assert.equal((await call('GET', statusPath, null, login.cookie)).status, 200);
+        await setStudentPermission('exam:read', true);
+        assert.equal((await call('GET', '/api/exams/1', null, login.cookie)).status, 200);
+
+        await setStudentPermission('exam:submit', false);
+        assert.equal((await call('POST', '/api/exams/1/submit', { answers }, login.cookie)).status, 403);
+        assert.equal((await database.query('SELECT count(*)::int AS n FROM exam_attempts')).rows[0].n, 0);
+        assert.equal((await database.query('SELECT count(*)::int AS n FROM attempt_answers')).rows[0].n, 0);
+        assert.equal((await call('GET', '/api/exams/1', null, login.cookie)).status, 200);
+        await setStudentPermission('exam:submit', true);
+      }
       assert.equal((await call('POST', '/api/exams/1/submit', { answers }, login.cookie)).status, 201);
       assert.equal((await call('GET', '/api/students/me/exams/1/result', null, login.cookie)).data.grade, '5/5');
+      if (email === 'alumno1@ejemplo.com') {
+        await setStudentPermission('result:read:own', false);
+        assert.equal((await call('GET', statusPath, null, login.cookie)).status, 403);
+        assert.equal((await call('GET', '/api/students/me/exams/1/result', null, login.cookie)).status, 403);
+        assert.equal((await call('GET', '/api/exams/1', null, login.cookie)).status, 200);
+        await setStudentPermission('result:read:own', true);
+        assert.equal((await call('GET', statusPath, null, login.cookie)).status, 200);
+        assert.equal((await call('GET', '/api/students/me/exams/1/result', null, login.cookie)).data.grade, '5/5');
+      }
       assert.equal((await call('POST', '/api/exams/1/submit', { answers }, login.cookie)).status, 409);
       assert.equal((await call('POST', '/api/auth/logout', null, login.cookie)).cookie, 'auth_session=');
     }
@@ -90,6 +132,7 @@ test('acceso exclusivo con contraseña y cuentas de prueba', async () => {
     assert.equal((await call('GET', '/api/teacher/students', null, teacher.cookie)).status, 200);
     assert.equal((await call('GET', '/api/teacher/results', null, teacher.cookie)).status, 200);
     assert.equal((await call('GET', statusPath, null, teacher.cookie)).status, 403);
+    assert.equal((await call('GET', '/api/exams/1', null, teacher.cookie)).status, 403);
   } finally {
     if (server) await new Promise(resolve => server.close(resolve));
     if (pool) await pool.end();
