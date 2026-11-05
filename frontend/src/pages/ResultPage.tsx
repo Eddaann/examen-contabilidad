@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import type { ExamResult } from "../types/exam.types";
 import "./ResultPage.scss";
 
@@ -7,13 +8,22 @@ interface ResultPageProps {
 }
 
 export default function ResultPage({ result, confirmation }: ResultPageProps) {
+  const titleRef = useRef<HTMLHeadingElement>(null);
+
+  useLayoutEffect(() => {
+    const title = titleRef.current;
+    const scrollContainer = title?.closest<HTMLElement>(".student-layout__content");
+    if (scrollContainer) scrollContainer.scrollTop = 0;
+    title?.focus({ preventScroll: true });
+  }, []);
+
   return (
     <main className="exam result">
       <div className="exam__container">
         {confirmation && <p className="exam__success" role="status">{confirmation}</p>}
         <header className="exam__header">
           <span className="exam__tag">Evaluación finalizada</span>
-          <h1 className="exam__title">Resultado del examen</h1>
+          <h1 ref={titleRef} tabIndex={-1} className="exam__title">Resultado del examen</h1>
           <p className="result__grade">Calificación: <strong>{result.grade}</strong></p>
           <p>{result.score} aciertos de {result.total} preguntas.</p>
           <p className="result__note">Estas son las respuestas de tu intento. El examen ya no puede modificarse.</p>
