@@ -87,6 +87,9 @@ export interface SavedAnswerRow {
   selected_option: string;
   correct_option: string;
   is_correct: boolean;
+  statement: string;
+  selected_option_text: string;
+  correct_option_text: string | null;
 }
 
 export async function findAttemptResult(
@@ -111,8 +114,16 @@ export async function findAttemptResult(
        a.question_number,
        a.option_code AS selected_option,
        a.correct_option_code AS correct_option,
-       a.is_correct
+       a.is_correct,
+       q.statement,
+       selected.text AS selected_option_text,
+       correct.text AS correct_option_text
      FROM attempt_answers a
+     JOIN questions q ON q.exam_id = a.exam_id AND q.number = a.question_number
+     JOIN options selected ON selected.exam_id = a.exam_id
+       AND selected.question_number = a.question_number AND selected.code = a.option_code
+     LEFT JOIN options correct ON correct.exam_id = a.exam_id
+       AND correct.question_number = a.question_number AND correct.code = a.correct_option_code
      WHERE a.user_id = $1
        AND a.exam_id = $2
      ORDER BY a.question_number`,

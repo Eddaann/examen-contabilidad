@@ -144,7 +144,7 @@ test('límites persistidos por IP y cuenta antes del controlador', async t => {
     await Promise.all(servers.map(server => new Promise(resolve => server.close(resolve))));
     if (pool) await pool.end();
     if (database) await database.end();
-    if (created) await admin.query(`DROP DATABASE "${name}" WITH (FORCE)`);
+    if (created) await admin.query(`DROP DATABASE "${name}"`);
     await admin.end();
   }
 });

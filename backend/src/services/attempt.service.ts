@@ -10,11 +10,14 @@ import {
 interface CorrectAnswerRow {
   number: number;
   code: string | null;
+  statement: string;
+  correct_text: string | null;
 }
 
 interface OptionRow {
   question_number: number;
   code: string;
+  text: string;
 }
 
 export class AttemptError extends Error {
@@ -129,7 +132,9 @@ export async function submitExam(
     const correctResult = await client.query<CorrectAnswerRow>(
       `SELECT
          q.number,
-         o.code
+         q.statement,
+         o.code,
+         o.text AS correct_text
        FROM questions q
        LEFT JOIN options o
          ON o.exam_id = q.exam_id
@@ -184,7 +189,7 @@ export async function submitExam(
 
     // Consultar las opciones válidas
     const optionsResult = await client.query<OptionRow>(
-      `SELECT question_number, code
+      `SELECT question_number, code, text
        FROM options
        WHERE exam_id = $1`,
       [examId]
@@ -215,6 +220,10 @@ export async function submitExam(
 
       return {
         questionNumber: correct.number,
+        statement: correct.statement,
+        selectedOptionText: optionsResult.rows.find(option =>
+          option.question_number === correct.number && option.code === selected!.optionCode)!.text,
+        correctOptionText: correct.correct_text ?? correct.code!,
         selectedOption: selected!.optionCode,
         correctOption: correct.code!,
         isCorrect: selected!.optionCode === correct.code,
@@ -275,6 +284,9 @@ export async function getStudentResult(
 
   const details = attempt.answers.map((answer) => ({
     questionNumber: answer.question_number,
+    statement: answer.statement,
+    selectedOptionText: answer.selected_option_text,
+    correctOptionText: answer.correct_option_text ?? answer.correct_option,
     selectedOption: answer.selected_option,
     correctOption: answer.correct_option,
     isCorrect: answer.is_correct,
