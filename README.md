@@ -125,7 +125,6 @@ La [guía técnica](docs/guia-tecnica.md) contiene los detalles que no necesitas
 - Roles y permisos permiten ampliar el proyecto; la administración visual de usuarios y permisos, el panel de profesores y la integración LTI quedan pendientes.
 - No hay interfaz para cambiar contraseñas ni gestor incremental de migraciones.
 
-Otras mejoras futuras: pruebas E2E automatizadas y mantenimiento de sesiones y contadores vencidos.
 
 ## Uso de IA
 
