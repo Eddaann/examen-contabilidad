@@ -129,7 +129,11 @@ test('autenticación, cuentas de prueba y permisos efectivos del estudiante', as
         await setStudentPermission('exam:submit', true);
       }
       assert.equal((await call('POST', '/api/exams/1/submit', { answers }, login.cookie)).status, 201);
-      assert.equal((await call('GET', '/api/students/me/exams/1/result', null, login.cookie)).data.grade, '5/5');
+      const savedDetails = (await call('GET', '/api/students/me/exams/1/result', null, login.cookie)).data;
+      assert.equal(savedDetails.grade, '5/5');
+      assert.equal(savedDetails.details[0].statement, 'El saldo inicial de Bancos es de $850,000.');
+      assert.equal(savedDetails.details[0].selectedOptionText, 'Cargo');
+      assert.equal(savedDetails.details[0].correctOptionText, 'Cargo');
       if (email === 'alumno1@ejemplo.com') {
         await setStudentPermission('result:read:own', false);
         assert.equal((await call('GET', statusPath, null, login.cookie)).status, 403);
