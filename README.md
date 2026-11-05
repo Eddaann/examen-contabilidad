@@ -15,6 +15,45 @@ El frontend incluye login, recuperación de sesión al recargar, examen con conf
 | Contenedores | Docker Compose, imágenes de Node.js y Nginx |
 | Pruebas | Node Test Runner; comprobaciones visuales con Playwright |
 
+## Inicio rápido para evaluar la prueba
+
+Necesitas **Git**, **Docker Desktop instalado y en ejecución** (o Docker Engine con Compose v2 compatible con `--wait`) y conexión a Internet para descargar las imágenes y dependencias la primera vez. En Windows utiliza contenedores Linux. Mantén libres los puertos locales **8080** y **5432**. No necesitas instalar Node.js, npm ni PostgreSQL en tu equipo.
+
+Ejecuta estos comandos en Terminal (macOS/Linux) o PowerShell (Windows):
+
+```bash
+git clone https://github.com/Eddaann/examen-contabilidad.git
+cd examen-contabilidad
+docker run --rm --mount "type=bind,source=${PWD},target=/workspace" -w /workspace node:24-alpine node scripts/setup-env.cjs
+docker compose up --build -d --wait
+```
+
+El tercer comando **crea `.env` automáticamente**, con claves y contraseñas aleatorias, diferentes para cada instalación. No imprime secretos ni necesita que el autor comparta sus credenciales. Si `.env` ya existe, lo conserva sin cambios. El cuarto comando construye y arranca los tres servicios; espera a que termine correctamente. La primera ejecución puede tardar varios minutos.
+
+1. Abre [http://localhost:8080](http://localhost:8080).
+2. Abre el archivo `.env` de tu copia con un editor local y consulta `TEST_STUDENT_PASSWORD`.
+3. Inicia sesión con `alumno1@ejemplo.com` y ese valor como contraseña, sin el nombre de la variable. También puedes usar `alumno2@ejemplo.com` o `alumno3@ejemplo.com`; cada uno tiene un intento independiente.
+
+**No debes enviar ni subir tu `.env`.** Git lo excluye; `.env.example` y el generador no contienen secretos reales. La contraseña queda disponible únicamente en tu archivo local; no se muestra en la salida del generador. No hace falta obtener o configurar un JWT de usuario: el login lo genera automáticamente.
+
+Para apagar y volver a ejecutar, conservando usuarios y resultados:
+
+```bash
+docker compose down
+docker compose up -d --wait
+```
+
+Si algo impide el arranque:
+
+- **Docker no responde:** abre Docker Desktop y espera a que el motor esté listo. Comprueba `docker info`.
+- **Compose no reconoce `--wait`:** actualiza Docker Desktop o el plugin Docker Compose.
+- **Puerto ocupado:** cambia `FRONTEND_PORT` o `DB_PUBLISHED_PORT` en `.env` (por ejemplo, `8081` y `5433`) y repite el arranque. Si usas `8081`, abre `http://localhost:8081`. Para desarrollo fuera de Docker, ajusta también `DB_PORT` al puerto publicado.
+- **Variables obligatorias vacías:** si ya existía un `.env` incompleto, el generador no lo modifica. Completa sus valores con el procedimiento de generación de secretos de este README.
+- **Un servicio no arranca:** consulta `docker compose ps` y `docker compose logs --tail=100 backend frontend db`. No compartas archivos de configuración ni logs sin revisar si contienen información privada.
+- **Ya tenías una base de otra versión:** revisa la sección de migraciones antes de arrancar; los scripts de inicialización solo se aplican automáticamente a un volumen vacío. Regenerar contraseñas no actualiza las cuentas ni las credenciales de un volumen existente.
+
+Con estos pasos termina la instalación para evaluar la prueba. Las secciones siguientes documentan la configuración manual, el desarrollo local y el mantenimiento.
+
 ## Requisitos
 
 Para ejecutar todo en contenedores necesitas Git y Docker con Docker Compose v2 o superior que admita `--wait`. Docker Desktop incluye Compose. No necesitas instalar Node.js ni PostgreSQL en tu equipo para esta modalidad.
@@ -33,6 +72,8 @@ cd examen-contabilidad
 ```
 
 ### 2. Preparar las variables de entorno
+
+El inicio rápido ya realiza este paso mediante `scripts/setup-env.cjs`. Si tienes Node.js 24 instalado, también puedes ejecutar `node scripts/setup-env.cjs` desde la raíz. La configuración manual siguiente es una alternativa.
 
 En una instalación nueva:
 
@@ -304,9 +345,29 @@ compose.yaml         Servicios db, backend y frontend
 
 El frontend consulta el estado del intento antes de mostrar el examen. Al enviar, el servidor valida las respuestas y guarda intento, respuestas, corrección y calificación en una transacción. La clave primaria por estudiante y examen impide repetir el intento, también ante envíos simultáneos.
 
+### Decisión de diseño: una base preparada para crecer
+
+Se decidió que el modelo de datos y el backend contemplaran más alcance que la interfaz solicitada en la prueba. La base separa usuarios, roles y permisos mediante relaciones, y organiza exámenes, preguntas, opciones e intentos por entidades. Esto permite incorporar más exámenes y ampliar los accesos de estudiantes y profesores sin rehacer el modelo central. Las sesiones persistidas y los resultados históricos también forman parte de esa base.
+
+El frontend se mantiene enfocado en lo necesario para presentar la prueba: iniciar sesión, responder el examen una sola vez y consultar la calificación con las respuestas del alumno. El backend ya ofrece consultas de estudiantes y resultados para docentes, pero su panel visual y la administración de usuarios, roles, permisos y exámenes quedan como ampliaciones pendientes. Esta preparación facilita evolucionar las funcionalidades; no implica que se haya validado el rendimiento bajo grandes volúmenes de usuarios.
+
 ## Sesiones, permisos y resultados
 
 El acceso utiliza correo y contraseña y crea una cookie HTTP-only `auth_session`, sin guardar el token en `localStorage`. La sesión dura dos horas, persiste en PostgreSQL y se recupera visualmente mediante `/api/auth/me`. Logout revoca la sesión presentada; cambiar la contraseña invalida todas las anteriores.
+
+### Cómo obtener y utilizar el JWT de sesión
+
+El JWT lo genera el backend al iniciar sesión; no se obtiene de un servicio externo ni se crea manualmente. `JWT_SECRET` es la clave privada para firmarlo, no el token de un usuario. Para configurar esa clave utiliza el procedimiento de **Generar secretos locales sin mostrarlos** de este README.
+
+Para obtener una sesión desde el navegador:
+
+1. Abre `http://localhost:8080` e inicia sesión con una cuenta de prueba y la contraseña que configuraste localmente.
+2. En las herramientas de desarrollo, abre **Application/Aplicación → Storage/Almacenamiento → Cookies → http://localhost:8080** y busca `auth_session`. Su valor es el JWT. También puedes identificar la cookie en la cabecera `Set-Cookie` de la respuesta a `POST /api/auth/login`, en **Network/Red**.
+3. El navegador envía la cookie automáticamente en las peticiones a la API. Para comprobar la sesión, consulta `GET /api/auth/me` desde el mismo origen; no necesitas copiar el token al código del frontend.
+
+En Postman o un cliente equivalente, envía `POST http://localhost:8080/api/auth/login` con un cuerpo JSON que contenga `email` y `password`, utilizando tus credenciales locales. Conserva la cookie `auth_session` del inicio de sesión y envíala en las siguientes peticiones. El login devuelve los datos del usuario en JSON; el JWT se entrega mediante la cookie, no en el cuerpo de la respuesta.
+
+La API actual lee `Cookie: auth_session=<JWT_DE_LA_SESION>`; no acepta el token mediante `Authorization: Bearer`. La cookie es `HttpOnly`, por lo que JavaScript no puede leerla con `document.cookie`. No publiques su valor ni lo guardes en el repositorio, capturas o logs: permite usar esa sesión hasta que expire o sea revocada. Copiar o volver a firmar un JWT no sustituye el registro de sesión que valida el backend en PostgreSQL.
 
 | Operación | Permiso |
 | --- | --- |
