@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import { pool } from "./config/database";
 
+import studentRoutes from "./routes/student.routes";
+
 const app = express();
 
 app.use(cors());
@@ -32,5 +34,7 @@ app.get("/api/health/db", async (_req, res) => {
     });
   }
 });
+
+app.use("/api/students", studentRoutes);
 
 export default app;
