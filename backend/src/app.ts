@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
+
 import { pool } from "./config/database";
 
 import studentRoutes from "./routes/student.routes";
@@ -8,9 +10,16 @@ import attemptRoutes from "./routes/attempt.routes";
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+// Middlewares
+app.use(cors({
+  origin: "http://localhost:5173",
+  credentials: true,
+}));
 
+app.use(express.json());
+app.use(cookieParser());
+
+// Health checks
 app.get("/api/health", (_req, res) => {
   res.status(200).json({
     status: "ok",
@@ -37,6 +46,7 @@ app.get("/api/health/db", async (_req, res) => {
   }
 });
 
+// Rutas de la API
 app.use("/api/students", studentRoutes);
 app.use("/api/exams", examRoutes);
 app.use("/api/students", attemptRoutes);

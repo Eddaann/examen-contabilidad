@@ -15,7 +15,11 @@ export async function getStudentAttemptStatus(
   req: Request,
   res: Response
 ): Promise<void> {
-  const { studentId, examId } = req.params;
+  // Obtener el estudiante desde la sesión
+  const studentId: unknown = res.locals.studentId;
+
+  // Obtener el examen desde la URL
+  const { examId } = req.params;
 
   if (!isValidId(studentId) || !isValidId(examId)) {
     res.status(400).json({
