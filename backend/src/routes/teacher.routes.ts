@@ -1,8 +1,10 @@
 import { Router } from "express";
-
 import { requireAuth } from "../middlewares/auth.middleware";
 import { requirePermission } from "../middlewares/permission.middleware";
-import { getStudents } from "../controllers/teacher.controller";
+import {
+  getStudents,
+  getResults,
+} from "../controllers/teacher.controller";
 
 const router = Router();
 
@@ -12,6 +14,12 @@ router.get(
   "/students",
   requirePermission("student:read:all"),
   getStudents
+);
+
+router.get(
+  "/results",
+  requirePermission("result:read:all"),
+  getResults
 );
 
 export default router;
