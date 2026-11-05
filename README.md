@@ -31,8 +31,21 @@ docker compose up --build -d --wait
 El tercer comando **crea `.env` automáticamente**, con claves y contraseñas aleatorias, diferentes para cada instalación. No imprime secretos ni necesita que el autor comparta sus credenciales. Si `.env` ya existe, lo conserva sin cambios. El cuarto comando construye y arranca los tres servicios; espera a que termine correctamente. La primera ejecución puede tardar varios minutos.
 
 1. Abre [http://localhost:8080](http://localhost:8080).
-2. Abre el archivo `.env` de tu copia con un editor local y consulta `TEST_STUDENT_PASSWORD`.
-3. Inicia sesión con `alumno1@ejemplo.com` y ese valor como contraseña, sin el nombre de la variable. También puedes usar `alumno2@ejemplo.com` o `alumno3@ejemplo.com`; cada uno tiene un intento independiente.
+2. Elige una de las cuentas de la tabla siguiente y abre el archivo `.env` de tu copia con un editor local.
+3. Inicia sesión con el correo indicado y el valor de la variable correspondiente como contraseña, sin incluir el nombre de la variable.
+
+### Cuentas para probar la aplicación
+
+Las cuentas se preparan automáticamente al arrancar el backend; no necesitas registrarlas ni ejecutar comandos adicionales.
+
+| Correo de acceso | Contraseña en tu archivo `.env` | Qué puedes probar |
+| --- | --- | --- |
+| `alumno1@ejemplo.com` | Valor de `TEST_STUDENT_PASSWORD` | Login, examen y consulta del resultado |
+| `alumno2@ejemplo.com` | Valor de `TEST_STUDENT_PASSWORD` | Un segundo intento independiente con otro alumno |
+| `alumno3@ejemplo.com` | Valor de `TEST_STUDENT_PASSWORD` | Un tercer intento independiente con otro alumno |
+| `profesor1@ejemplo.com` | Valor de `TEST_TEACHER_PASSWORD` | Login docente y consultas autorizadas mediante la API; el panel visual está pendiente |
+
+Para revisar el flujo principal, entra con `alumno1@ejemplo.com`, responde las cinco preguntas, pulsa **Finalizar examen** y confirma el envío. Verás la calificación y tus respuestas. Recarga la página o cierra sesión y vuelve a entrar: el resultado debe conservarse. Cada alumno puede enviar el examen una sola vez; utiliza otra cuenta de alumno para repetir la demostración sin borrar datos.
 
 **No debes enviar ni subir tu `.env`.** Git lo excluye; `.env.example` y el generador no contienen secretos reales. La contraseña queda disponible únicamente en tu archivo local; no se muestra en la salida del generador. No hace falta obtener o configurar un JWT de usuario: el login lo genera automáticamente.
 
