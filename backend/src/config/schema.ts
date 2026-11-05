@@ -11,7 +11,7 @@ const requiredTables = {
   questions: "exam_id, number, statement",
   options: "exam_id, question_number, code, text, is_correct",
   exam_attempts: "user_id, exam_id, submitted_at, score, total_questions",
-  attempt_answers: "user_id, exam_id, question_number, option_code, correct_option_code, is_correct",
+  attempt_answers: "user_id, exam_id, question_number, option_code, correct_option_code, is_correct, statement, selected_option_text, correct_option_text",
   auth_sessions: "id, user_id, session_version, created_at, expires_at",
   auth_rate_limits: "scope, key_hash, hits, expires_at",
 };

@@ -221,7 +221,7 @@ El profesor puede autenticarse y acceder a los endpoints autorizados de consulta
 
 ## Base de datos y migraciones
 
-En un volumen vacío, PostgreSQL ejecuta seis migraciones y dos seeds, en este orden:
+En un volumen vacío, PostgreSQL ejecuta siete migraciones y dos seeds, en este orden:
 
 1. Identidad: usuarios, roles y permisos.
 2. Exámenes, preguntas y opciones.
@@ -229,13 +229,14 @@ En un volumen vacío, PostgreSQL ejecuta seis migraciones y dos seeds, en este o
 4. Calificación y corrección persistidas.
 5. Sesiones y revocación al cambiar contraseña.
 6. Contadores de límites de autenticación.
-7. Roles y permisos iniciales.
-8. Estudiantes y examen de cinco preguntas con veinte opciones.
+7. Textos históricos de preguntas y opciones.
+8. Roles y permisos iniciales.
+9. Estudiantes y examen de cinco preguntas con veinte opciones.
 
-Los scripts están en `database/migrations/` y `database/seeds/`. **Reiniciar un volumen existente no vuelve a ejecutarlos.** No hay un gestor incremental de migraciones: aplica solo los archivos pendientes, una vez y en orden, antes de ejecutar el backend actualizado. Por ejemplo, si la base ya tiene las migraciones 001–005:
+Los scripts están en `database/migrations/` y `database/seeds/`. **Reiniciar un volumen existente no vuelve a ejecutarlos.** No hay un gestor incremental de migraciones: aplica solo los archivos pendientes, una vez y en orden, antes de ejecutar el backend actualizado. Por ejemplo, si la base ya tiene las migraciones 001–006:
 
 ```bash
-docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < database/migrations/006_create_auth_rate_limits.sql
+docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < database/migrations/007_preserve_attempt_texts.sql
 ```
 
 No ejecutes de nuevo todas las migraciones sobre una base ya preparada. Modificar las credenciales en `.env` tampoco modifica las de un volumen existente.
@@ -317,7 +318,7 @@ El acceso utiliza correo y contraseña y crea una cookie HTTP-only `auth_session
 
 Los permisos se comprueban en cada petición. Sin sesión se devuelve 401; sin autorización, 403. Los usuarios no pueden seleccionar un rol privilegiado al registrarse.
 
-Los aciertos, el total y la corrección de cada respuesta se guardan al enviar. Cambiar posteriormente la clave correcta o agregar preguntas no recalifica intentos anteriores. Los textos que acompañan el resultado se consultan de las preguntas y opciones existentes. La migración 004 reconstruye intentos antiguos con la clave disponible al migrar; no puede recuperar una clave histórica modificada previamente.
+Los aciertos, el total y la corrección de cada respuesta se guardan al enviar. Cambiar posteriormente la clave correcta o agregar preguntas no recalifica intentos anteriores. Los enunciados y los textos de las opciones seleccionadas y correctas también se guardan al enviar y se consultan del intento, sin depender de ediciones posteriores. La migración 007 completa los intentos anteriores con los textos disponibles al migrar: no puede recuperar contenido que ya se hubiera modificado. Si una opción correcta histórica ya no existe, conserva su código como texto. La migración 004 reconstruye intentos antiguos con la clave disponible al migrar; no puede recuperar una clave histórica modificada previamente.
 
 Login y registro tienen estos límites, persistidos por IP y cuenta:
 

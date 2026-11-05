@@ -29,6 +29,9 @@ export interface GradedAnswer {
   selectedOption: string;
   correctOption: string;
   isCorrect: boolean;
+  statement: string;
+  selectedOptionText: string;
+  correctOptionText: string;
 }
 
 // Guardar el intento y su corrección histórica en la misma transacción
@@ -61,9 +64,12 @@ export async function saveExamAttempt(
         question_number,
         option_code,
         correct_option_code,
-        is_correct
+        is_correct,
+        statement,
+        selected_option_text,
+        correct_option_text
       )
-      VALUES ($1, $2, $3, $4, $5, $6)`,
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
         studentId,
         examId,
@@ -71,6 +77,9 @@ export async function saveExamAttempt(
         answer.selectedOption,
         answer.correctOption,
         answer.isCorrect,
+        answer.statement,
+        answer.selectedOptionText,
+        answer.correctOptionText,
       ]
     );
   }
@@ -90,7 +99,7 @@ export interface SavedAnswerRow {
   is_correct: boolean;
   statement: string;
   selected_option_text: string;
-  correct_option_text: string | null;
+  correct_option_text: string;
 }
 
 export async function findAttemptResult(
@@ -116,15 +125,10 @@ export async function findAttemptResult(
        a.option_code AS selected_option,
        a.correct_option_code AS correct_option,
        a.is_correct,
-       q.statement,
-       selected.text AS selected_option_text,
-       correct.text AS correct_option_text
+       a.statement,
+       a.selected_option_text,
+       a.correct_option_text
      FROM attempt_answers a
-     JOIN questions q ON q.exam_id = a.exam_id AND q.number = a.question_number
-     JOIN options selected ON selected.exam_id = a.exam_id
-       AND selected.question_number = a.question_number AND selected.code = a.option_code
-     LEFT JOIN options correct ON correct.exam_id = a.exam_id
-       AND correct.question_number = a.question_number AND correct.code = a.correct_option_code
      WHERE a.user_id = $1
        AND a.exam_id = $2
      ORDER BY a.question_number`,
