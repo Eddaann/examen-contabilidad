@@ -113,9 +113,11 @@ export default function App() {
     );
   }
 
+  const isTeacher = user.roles.includes("TEACHER");
+
   return (
     <main>
-      <h1>Panel de docente</h1>
+      <h1>{isTeacher ? "Panel de docente" : "Sin permisos asignados"}</h1>
       <p>Bienvenido, {user.email}</p>
 
       <Button
@@ -131,7 +133,9 @@ export default function App() {
         <p role="alert">{logoutError}</p>
       )}
 
-      <p>El panel de docentes se implementará próximamente.</p>
+      <p>{isTeacher
+        ? "El panel de docentes se implementará próximamente."
+        : "Tu cuenta no tiene un rol habilitado para acceder. Contacta al administrador para solicitar acceso."}</p>
     </main>
   );
 }
