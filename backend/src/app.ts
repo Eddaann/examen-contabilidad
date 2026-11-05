@@ -12,6 +12,10 @@ import attemptRoutes from "./routes/attempt.routes";
 
 const app = express();
 
+// Docker publica únicamente Nginx: se confía en ese único salto.
+// En ejecución directa se ignoran las cabeceras de proxy del cliente.
+app.set("trust proxy", process.env.TRUST_PROXY === "1" ? 1 : false);
+
 // Middlewares
 app.use(cors({
   origin: "http://localhost:5173",

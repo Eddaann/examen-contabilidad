@@ -8,12 +8,14 @@ import {
 } from "../controllers/auth.controller";
 
 import { requireAuth } from "../middlewares/auth.middleware";
+import { createAuthRateLimits } from "../middlewares/auth-rate-limit.middleware";
 
 const router = Router();
+const limits = createAuthRateLimits();
 
 // Rutas públicas
-router.post("/register", register);
-router.post("/login", login);
+router.post("/register", ...limits.register, register);
+router.post("/login", ...limits.login, login);
 
 // Rutas protegidas
 router.get("/me", requireAuth, getCurrentUser);

@@ -47,6 +47,7 @@ test('autenticación, cuentas de prueba y permisos efectivos del estudiante', as
     assert.deepEqual(migratedAnswers.rows.map(row => row.is_correct), [false, true, false, true, false]);
     await database.query('DELETE FROM attempt_answers; DELETE FROM exam_attempts');
     await database.query(fs.readFileSync('../database/migrations/005_create_auth_sessions.sql', 'utf8'));
+    await database.query(fs.readFileSync('../database/migrations/006_create_auth_rate_limits.sql', 'utf8'));
 
     const seed = () => execFileSync(process.execPath, ['dist/scripts/seed-users.js'], {
       env: process.env, stdio: 'ignore',

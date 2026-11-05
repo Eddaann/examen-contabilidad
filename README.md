@@ -52,7 +52,7 @@ Para borrar completamente la base local y volver a cargar los datos iniciales, e
 
 ## Base de datos
 
-PostgreSQL ejecuta los cinco SQL de `database/migrations/` y después los dos de `database/seeds/`, en orden, al inicializar un volumen vacío. Se crean las tablas, roles, permisos, tres estudiantes y el examen con sus cinco preguntas y veinte opciones.
+PostgreSQL ejecuta los seis SQL de `database/migrations/` y después los dos de `database/seeds/`, en orden, al inicializar un volumen vacío. Se crean las tablas, roles, permisos, tres estudiantes y el examen con sus cinco preguntas y veinte opciones.
 
 Cuentas de prueba:
 
@@ -153,3 +153,24 @@ docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d 
 ```
 
 La base local ya fue migrada. Los JWT emitidos antes de este cambio dejan de autorizar: debes iniciar sesión de nuevo. Las sesiones vencidas se rechazan aunque sus registros sigan en la tabla.
+
+## Límites de login y registro
+
+Se verifican antes del controlador y de Argon2. Se cuentan todas las solicitudes que llegan a esos endpoints, incluidas las exitosas y las dirigidas a cuentas inexistentes. El correo se normaliza con espacios externos eliminados y minúsculas. Las solicitudes bloqueadas reciben 429 en JSON con un mensaje genérico y `Retry-After`, sin revelar si la cuenta existe.
+
+| Ruta | Por IP | Por cuenta | Ventana |
+| --- | --- | --- | --- |
+| `/api/auth/login` | 30 | 10 | 15 minutos |
+| `/api/auth/register` | 10 | 3 | 1 hora |
+
+Los contadores son atómicos y se guardan en PostgreSQL para conservarse tras reinicios y compartirse entre instancias. Se almacenan identificadores HMAC usando `JWT_SECRET`, sin correos, IP, cuerpos ni contraseñas en claro. Rotar esa clave cambia los identificadores de los contadores. Si la base falla, se rechaza la operación con un error genérico y no se ejecuta el controlador. Los contadores vencidos se reinician al recibir una nueva solicitud; sus registros pueden limpiarse con `DELETE FROM auth_rate_limits WHERE expires_at <= NOW()`.
+
+En Docker, Nginx reemplaza `X-Forwarded-For` con la IP que observa y el backend confía en un único salto mediante `TRUST_PROXY=1`. El puerto del backend no se publica. En ejecución directa, `TRUST_PROXY=0` (valor predeterminado) ignora las cabeceras enviadas por el cliente. IPv6 se agrupa por subred /56 para evitar eludir el límite rotando direcciones de esa subred.
+
+La migración `006_create_auth_rate_limits.sql` se aplica automáticamente en una base nueva. En una instalación existente, ejecútala una sola vez antes de actualizar el backend:
+
+```bash
+docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < database/migrations/006_create_auth_rate_limits.sql
+```
+
+La base local ya fue migrada. Las pruebas comprueban límites por IP y cuenta, normalización, concurrencia, persistencia entre instancias, recuperación al vencer la ventana, IPv6, cabeceras falsificadas en ejecución directa y ausencia de datos de petición en logs.
