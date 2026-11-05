@@ -7,5 +7,5 @@ dist/
 coverage/
 
 # Cookies de pruebas
-cookies*.txt
+*cookies*.txt
 auth-cookies.txt
