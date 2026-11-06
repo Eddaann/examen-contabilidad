@@ -125,7 +125,15 @@ La [guía técnica](docs/guia-tecnica.md) contiene los detalles que no necesitas
 - Roles y permisos permiten ampliar el proyecto; la administración visual de usuarios y permisos, el panel de profesores y la integración LTI quedan pendientes.
 - No hay interfaz para cambiar contraseñas ni gestor incremental de migraciones.
 
-Otras mejoras futuras: pruebas E2E automatizadas y mantenimiento de sesiones y contadores vencidos.
+
+## Propuesta de integración LTI
+
+**Investigación opcional; no implementada ni validada contra un LMS.** LTI permitiría abrir el examen desde una plataforma educativa, como Moodle o Canvas. La propuesta utilizaría [LTI 1.3 de 1EdTech](https://www.imsglobal.org/spec/lti/v1p3/):
+
+1. Registrar la aplicación en el LMS y configurar plataforma, `client_id`, `deployment_id`, URLs HTTPS de inicio y retorno, y claves públicas JWKS.
+2. Añadir el inicio OIDC y validar el lanzamiento: firma del `id_token` con las claves del LMS, emisor, audiencia, vencimiento, despliegue, `state` y `nonce` de un solo uso. El token externo se validaría por separado del JWT de sesión actual.
+3. Vincular la identidad del LMS (`iss`, `client_id`, `sub`) a un usuario local, sin asociar cuentas automáticamente solo por correo. Mapear los roles autorizados por curso y relacionar el enlace de la actividad con un examen concreto, reutilizando la lógica de intentos y calificación.
+4. Si el LMS habilita [Assignment and Grade Services (AGS)](https://www.imsglobal.org/spec/lti-ags/v2p0/), enviar la nota guardada mediante OAuth 2.0 con los permisos concedidos; por ejemplo, 4 puntos de un máximo de 5. Un fallo de sincronización no borraría el intento local.
 
 ## Uso de IA
 
