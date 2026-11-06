@@ -83,7 +83,23 @@ test('errores desconocidos no exponen detalles internos', () => {
   assert.equal(errorMessage(new Error('PRIVATE_STACK')), 'Ocurrió un error inesperado. Inténtalo de nuevo.');
 });
 
-const { getExam, getExamStatus, submitExam, getExamResult } = require(path.join(compiled, 'exam.api.js'));
+const { getCurrentExamId, getExam, getExamStatus, submitExam, getExamResult } = require(path.join(compiled, 'exam.api.js'));
+
+test('selección de examen descubre IDs distintos al seed y comunica configuración inválida', async t => {
+  const mock = t.mock.method(globalThis, 'fetch', async url => {
+    assert.equal(url, '/api/exams/current');
+    return json({ id: '42' });
+  });
+  assert.equal(await getCurrentExamId(), '42');
+  for (const id of ['0', 'current', '9223372036854775808', 42, null]) {
+    mock.mock.mockImplementation(async () => json({ id }));
+    await assert.rejects(getCurrentExamId(), e => e.message.includes('información inválida'));
+  }
+  mock.mock.mockImplementation(async () => json({}, 404));
+  await assert.rejects(getCurrentExamId(), e => e.status === 404 && e.message === 'No hay un examen disponible.');
+  mock.mock.mockImplementation(async () => json({}, 409));
+  await assert.rejects(getCurrentExamId(), e => e.status === 409 && e.message.includes('más de un examen activo'));
+});
 const examResult = {
   score: 1, total: 1, grade: '1/1',
   details: [{ questionNumber: 1, selectedOption: 'A', correctOption: 'A', isCorrect: true }],
