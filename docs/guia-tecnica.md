@@ -22,16 +22,14 @@ El generador también puede ejecutarse con `node scripts/setup-env.cjs` si ya ti
 
 La carga de cuentas conserva las contraseñas, los roles y los intentos existentes. Cambiar `TEST_STUDENT_PASSWORD` o `TEST_TEACHER_PASSWORD` no cambia las contraseñas que ya están guardadas en PostgreSQL.
 
-### Selección del examen en una base existente
+### Selección del examen activo
 
-El frontend utiliza `EXAM_ID = "1"` en `frontend/src/api/exam.api.ts`, que coincide con el examen creado por los seeds en una base nueva. Para una base existente con otro ID, ajusta esa constante antes de construir el frontend.
+El frontend consulta `GET /api/exams/current`, protegido por sesión y el permiso `exam:read`. La API devuelve `{ "id": "…" }` cuando existe exactamente un examen activo. Ese ID se usa para cargar el contenido, consultar el estado del alumno, enviar y recuperar el resultado. No requiere editar ni reconstruir React al cambiar el ID en la base.
 
-Para una base existente, puedes consultar el ID después de iniciar PostgreSQL:
+- Sin exámenes activos: HTTP 404 y mensaje «No hay un examen disponible».
+- Con varios activos: HTTP 409; se pide contactar al administrador, sin elegir arbitrariamente.
 
-```bash
-docker compose up -d --wait db
-docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id, title, is_active FROM exams ORDER BY id;"'
-```
+Mantén exactamente un registro con `is_active = TRUE` en `exams`. Si cambias el examen activo, los intentos anteriores permanecen guardados, pero esta interfaz muestra únicamente el examen activo y su resultado; no es un historial o catálogo de exámenes. Un formulario ya abierto conserva su ID; si el examen se desactiva antes del envío, el backend rechaza el envío.
 
 ## Desarrollo local con PostgreSQL en Docker
 
@@ -103,7 +101,7 @@ docker compose down -v
 docker compose up --build -d --wait
 ```
 
-En una base nueva el ID del examen vuelve a ser `1`; si habías cambiado `EXAM_ID`, restablécelo a `"1"` antes de reconstruir. Si solo necesitas liberar los intentos de alumnos de prueba, no es necesario borrar el volumen completo.
+El frontend descubre automáticamente el examen activo de la nueva base. Si solo necesitas repetir la demostración, puedes registrar otro estudiante sin borrar el volumen.
 
 ## Pruebas
 

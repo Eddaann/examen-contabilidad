@@ -121,7 +121,7 @@ La [guía técnica](docs/guia-tecnica.md) contiene los detalles que no necesitas
 ## Supuestos, alcance y pendientes
 
 - Por decisión del proyecto, se utiliza correo y contraseña, aunque el enunciado original propone acceso solo por correo.
-- El examen se selecciona mediante la constante `EXAM_ID`, fijada en `"1"`; no existe todavía un catálogo de exámenes.
+- El frontend consulta `GET /api/exams/current` para descubrir el único examen activo, sin depender de su ID. Si no hay ninguno o hay varios activos, muestra un mensaje y permite reintentar. No existe todavía un catálogo visual de exámenes.
 - Roles y permisos permiten ampliar el proyecto; la administración visual de usuarios y permisos, el panel de profesores y la integración LTI quedan pendientes.
 - No hay interfaz para cambiar contraseñas ni gestor incremental de migraciones.
 
