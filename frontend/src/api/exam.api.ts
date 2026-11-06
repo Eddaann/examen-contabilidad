@@ -1,7 +1,17 @@
 import { ApiError, apiRequest } from "./client";
 import type { Exam, ExamAnswer, ExamResult, ExamStatus } from "../types/exam.types";
 
-export const EXAM_ID = "1";
+export async function getCurrentExamId(): Promise<string> {
+  const data = await apiRequest("/exams/current", {
+    statusMessages: {
+      404: "No hay un examen disponible.",
+      409: "Hay más de un examen activo. Contacta al administrador.",
+    },
+  });
+  if (!isRecord(data) || typeof data.id !== "string" || !/^[1-9]\d*$/.test(data.id)
+    || BigInt(data.id) > 9223372036854775807n) return invalidResponse();
+  return data.id;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";

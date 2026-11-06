@@ -3,7 +3,7 @@ import ResultPage from "./ResultPage";
 import ExamPage from "./ExamPage/ExamPage";
 import Button from "../components/Button";
 import { ApiError, errorMessage } from "../api/client";
-import { EXAM_ID, getExamStatus, getExamResult } from "../api/exam.api";
+import { getCurrentExamId, getExamStatus, getExamResult } from "../api/exam.api";
 import type { ExamResult } from "../types/exam.types";
 
 type View = "loading" | "exam" | "result" | "error";
@@ -15,6 +15,7 @@ export default function StudentExamFlow() {
   const [sessionExpired, setSessionExpired] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [confirmation, setConfirmation] = useState("");
+  const [examId, setExamId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -23,10 +24,13 @@ export default function StudentExamFlow() {
     setSessionExpired(false);
     async function initialize() {
       try {
-        const status = await getExamStatus(EXAM_ID);
+        const currentId = await getCurrentExamId();
         if (!active) return;
+        const status = await getExamStatus(currentId);
+        if (!active) return;
+        setExamId(currentId);
         if (status.submitted) {
-          const saved = await getExamResult(EXAM_ID);
+          const saved = await getExamResult(currentId);
           if (!active) return;
           setResult(saved);
           setView("result");
@@ -67,7 +71,7 @@ export default function StudentExamFlow() {
       </div></main>
     );
   }
-  if (view === "exam") return <ExamPage onSubmitted={handleSubmitted} />;
+  if (view === "exam" && examId) return <ExamPage key={examId} examId={examId} onSubmitted={handleSubmitted} />;
 
   return result ? <ResultPage result={result} confirmation={confirmation} /> : null;
 }

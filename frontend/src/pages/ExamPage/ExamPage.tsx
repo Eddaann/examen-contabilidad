@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { EXAM_ID, getExam, getExamStatus, getExamResult, submitExam } from "../../api/exam.api";
+import { getExam, getExamStatus, getExamResult, submitExam } from "../../api/exam.api";
 import type { Exam, ExamAnswer, ExamResult } from "../../types/exam.types";
 import { ApiError, errorMessage } from "../../api/client";
 import ConfirmDialog from "../../components/ConfirmDialog/ConfirmDialog";
@@ -7,10 +7,11 @@ import Button from "../../components/Button";
 import "./ExamPage.scss";
 
 interface ExamPageProps {
+  examId: string;
   onSubmitted: (result: ExamResult, recovered?: boolean) => void;
 }
 
-export default function ExamPage({ onSubmitted }: ExamPageProps) {
+export default function ExamPage({ examId, onSubmitted }: ExamPageProps) {
   const [exam, setExam] = useState<Exam | null>(null);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
@@ -29,7 +30,7 @@ export default function ExamPage({ onSubmitted }: ExamPageProps) {
 
     async function loadExam() {
       try {
-        const data = await getExam(EXAM_ID);
+        const data = await getExam(examId);
 
         if (active) {
           setExam(data);
@@ -51,7 +52,7 @@ export default function ExamPage({ onSubmitted }: ExamPageProps) {
     return () => {
       active = false;
     };
-  }, [loadAttempt]);
+  }, [examId, loadAttempt]);
 
   // Registrar la respuesta seleccionada
   function selectAnswer(

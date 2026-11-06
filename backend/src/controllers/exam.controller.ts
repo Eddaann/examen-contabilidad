@@ -1,5 +1,18 @@
 import type { Request, Response } from "express";
-import { getExamById } from "../services/exam.service";
+import { ExamSelectionError, getCurrentExamId, getExamById } from "../services/exam.service";
+
+export async function getCurrentExam(_req: Request, res: Response): Promise<void> {
+  try {
+    res.status(200).json({ id: await getCurrentExamId() });
+  } catch (error) {
+    if (error instanceof ExamSelectionError) {
+      res.status(error.statusCode).json({ message: error.message });
+      return;
+    }
+    console.error("Error al seleccionar el examen activo");
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+}
 
 export async function getExam(
   req: Request,

@@ -148,6 +148,7 @@ test('autenticación, cuentas de prueba y permisos efectivos del estudiante', as
     assert.equal((await call('POST', '/api/auth/login', { email: 'alumno1@ejemplo.com' })).status, 400);
     assert.equal((await call('POST', '/api/auth/login', { email: 'alumno1@ejemplo.com', password: 'wrong' })).status, 401);
     assert.equal((await call('GET', '/api/exams/1')).status, 401);
+    assert.equal((await call('GET', '/api/exams/current')).status, 401);
     const legacyToken = jwt.sign({ sub: '1', type: 'student-demo' }, process.env.JWT_SECRET);
     assert.equal((await call('GET', statusPath, null, `auth_session=${legacyToken}`)).status, 401);
     assert.equal((await call('GET', statusPath, null, `student_session=${legacyToken}`)).status, 401);
@@ -156,6 +157,33 @@ test('autenticación, cuentas de prueba y permisos efectivos del estudiante', as
       const login = await call('POST', '/api/auth/login', { email, password: process.env.TEST_STUDENT_PASSWORD });
       assert.equal(login.status, 200);
       assert.ok(login.cookie?.startsWith('auth_session='));
+      assert.deepEqual((await call('GET', '/api/exams/current', null, login.cookie)).data, { id: '1' });
+      if (email === 'alumno1@ejemplo.com') {
+        // Un ID diferente al del seed debe servir todo el flujo.
+        await database.query(`INSERT INTO exams (id, title, description, is_active)
+          OVERRIDING SYSTEM VALUE SELECT 42, title, description, TRUE FROM exams WHERE id = 1;
+          INSERT INTO questions SELECT 42, number, statement FROM questions WHERE exam_id = 1;
+          INSERT INTO options (exam_id, question_number, code, text, is_correct)
+            SELECT 42, question_number, code, text, is_correct FROM options WHERE exam_id = 1`);
+        assert.equal((await call('GET', '/api/exams/current', null, login.cookie)).status, 409);
+        await database.query('UPDATE exams SET is_active = FALSE WHERE id = 1');
+        assert.deepEqual((await call('GET', '/api/exams/current', null, login.cookie)).data, { id: '42' });
+        const current = await call('GET', '/api/exams/42', null, login.cookie);
+        assert.equal(current.status, 200);
+        assert.equal(current.data.id, '42');
+        assert.equal((await call('GET', '/api/students/me/exams/42/status', null, login.cookie)).data.submitted, false);
+        const answers42 = [1, 2, 3, 4, 5].map(n => ({ questionNumber: n, optionCode: n % 2 ? 'A' : 'B' }));
+        assert.equal((await call('POST', '/api/exams/42/submit', { answers: answers42 }, login.cookie)).status, 201);
+        assert.equal((await call('GET', '/api/students/me/exams/42/result', null, login.cookie)).data.grade, '5/5');
+        await database.query('UPDATE exams SET is_active = FALSE WHERE id = 42');
+        assert.equal((await call('GET', '/api/exams/current', null, login.cookie)).status, 404);
+        await database.query(`DELETE FROM attempt_answers WHERE exam_id = 42;
+          DELETE FROM exam_attempts WHERE exam_id = 42;
+          DELETE FROM options WHERE exam_id = 42;
+          DELETE FROM questions WHERE exam_id = 42;
+          DELETE FROM exams WHERE id = 42;
+          UPDATE exams SET is_active = TRUE WHERE id = 1`);
+      }
       assert.equal((await call('GET', statusPath, null, login.cookie)).status, 200);
       assert.equal((await call('GET', '/api/teacher/students', null, login.cookie)).status, 403);
       const answers = [1, 2, 3, 4, 5].map(n => ({ questionNumber: n, optionCode: n % 2 ? 'A' : 'B' }));
@@ -163,6 +191,7 @@ test('autenticación, cuentas de prueba y permisos efectivos del estudiante', as
       if (email === 'alumno1@ejemplo.com') {
         // Los permisos se retiran y restituyen manteniendo la misma sesión.
         await setStudentPermission('exam:read', false);
+        assert.equal((await call('GET', '/api/exams/current', null, login.cookie)).status, 403);
         assert.equal((await call('GET', '/api/exams/1', null, login.cookie)).status, 403);
         assert.equal((await call('GET', statusPath, null, login.cookie)).status, 200);
         await setStudentPermission('exam:read', true);

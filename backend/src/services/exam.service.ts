@@ -1,4 +1,21 @@
-import { findExamById } from "../repositories/exam.repository";
+import { findActiveExamIds, findExamById } from "../repositories/exam.repository";
+
+export class ExamSelectionError extends Error {
+  constructor(message: string, public statusCode: number) {
+    super(message);
+  }
+}
+
+export async function getCurrentExamId(): Promise<string> {
+  const ids = await findActiveExamIds();
+  if (ids.length === 0) {
+    throw new ExamSelectionError("No hay un examen disponible", 404);
+  }
+  if (ids.length > 1) {
+    throw new ExamSelectionError("Hay más de un examen activo. Contacta al administrador", 409);
+  }
+  return ids[0]!;
+}
 
 interface ExamOption {
   code: string;

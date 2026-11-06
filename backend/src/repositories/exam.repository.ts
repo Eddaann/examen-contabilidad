@@ -1,5 +1,12 @@
 import { pool } from "../config/database";
 
+export async function findActiveExamIds(): Promise<string[]> {
+  const result = await pool.query<{ id: string }>(
+    "SELECT id FROM exams WHERE is_active = TRUE ORDER BY id LIMIT 2"
+  );
+  return result.rows.map((row) => row.id);
+}
+
 export interface ExamRow {
   exam_id: string;
   title: string;
