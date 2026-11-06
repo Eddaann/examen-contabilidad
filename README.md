@@ -125,7 +125,6 @@ La [guía técnica](docs/guia-tecnica.md) contiene los detalles que no necesitas
 - Roles y permisos permiten ampliar el proyecto; la administración visual de usuarios y permisos, el panel de profesores y la integración LTI quedan pendientes.
 - No hay interfaz para cambiar contraseñas ni gestor incremental de migraciones.
 
-
 ## Propuesta de integración LTI
 
 **Investigación opcional; no implementada ni validada contra un LMS.** LTI permitiría abrir el examen desde una plataforma educativa, como Moodle o Canvas. La propuesta utilizaría [LTI 1.3 de 1EdTech](https://www.imsglobal.org/spec/lti/v1p3/):
